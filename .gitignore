@@ -1,0 +1,12 @@
+node_modules
+.dist
+.DS_Store
+dist
+dist-electron
+coverage
+.vscode/*
+!.vscode/tasks.json
+!.vscode/extensions.json
+*.log
+.env
+.env.*
