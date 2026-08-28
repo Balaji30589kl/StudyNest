@@ -30,6 +30,36 @@ What to verify:
 - Unit tests pass.
 - Production build succeeds.
 
+## Phase 1.1: Omnibox and Search Experience
+
+Build order:
+- Add Chrome-like URL versus search classification.
+- Add a suggestion dropdown under the address bar.
+- Pull search suggestions from DuckDuckGo and mix them with recent entries and open tabs.
+- Expand the Electron browser chrome while the suggestion panel is open.
+- Keep Enter, arrow keys, and click selection working inside the omnibox.
+
+Key implementation rules:
+- Bare words should search instead of being treated as hostnames.
+- Full URLs should still navigate directly.
+- Search result pages should display the search query, not the raw search URL.
+- The renderer must request chrome height changes so the BrowserView stays aligned.
+
+What to verify:
+- Typing a word like `youtube` shows search suggestions.
+- Typing a domain like `example.com` offers direct navigation.
+- Arrow keys move the suggestion highlight.
+- Enter submits the selected suggestion.
+- Clicking a suggestion navigates correctly.
+- The browser chrome expands while suggestions are visible and collapses after submit or escape.
+
+Current output:
+- The omnibox now differentiates URL-like input from search queries.
+- DuckDuckGo suggestions appear below the address bar.
+- Recent entries and current tabs are included in the suggestion list.
+- Search pages show the query in the address bar instead of the raw search URL.
+- The Electron layout reserves room for the omnibox panel while it is open.
+
 ## Phase 2: Study Mode Without AI
 
 Build order:

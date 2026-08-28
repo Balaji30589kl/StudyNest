@@ -8,6 +8,7 @@ export const IPC_CHANNELS = {
   GO_BACK: 'browser:go-back',
   GO_FORWARD: 'browser:go-forward',
   REFRESH: 'browser:refresh',
+  SET_CHROME_HEIGHT: 'browser:set-chrome-height',
   WINDOW_MINIMIZE: 'window:minimize',
   WINDOW_TOGGLE_MAXIMIZE: 'window:toggle-maximize',
   WINDOW_CLOSE: 'window:close'
@@ -47,6 +48,7 @@ export type StudyNestApi = {
   goBack(tabId?: string): Promise<BrowserStateSnapshot>;
   goForward(tabId?: string): Promise<BrowserStateSnapshot>;
   refresh(tabId?: string): Promise<BrowserStateSnapshot>;
+  setChromeHeight(height: number): Promise<void>;
   minimize(): Promise<void>;
   toggleMaximize(): Promise<void>;
   close(): Promise<void>;

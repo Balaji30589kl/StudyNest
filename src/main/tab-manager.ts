@@ -16,6 +16,7 @@ type TabRecord = {
 export class TabManager {
   private readonly tabs = new Map<string, TabRecord>();
   private activeTabId: string | null = null;
+  private chromeHeight = BROWSER_CHROME_HEIGHT;
 
   constructor(private readonly window: BrowserWindow) {}
 
@@ -59,6 +60,11 @@ export class TabManager {
   }
 
   layoutActiveTab(): void {
+    this.resizeActiveView();
+  }
+
+  setChromeHeight(height: number): void {
+    this.chromeHeight = Math.max(BROWSER_CHROME_HEIGHT, Math.floor(height));
     this.resizeActiveView();
   }
 
@@ -183,9 +189,9 @@ export class TabManager {
     const contentBounds = this.window.getContentBounds();
     activeTab.view.setBounds({
       x: 0,
-      y: BROWSER_CHROME_HEIGHT,
+      y: this.chromeHeight,
       width: contentBounds.width,
-      height: Math.max(contentBounds.height - BROWSER_CHROME_HEIGHT, 0)
+      height: Math.max(contentBounds.height - this.chromeHeight, 0)
     });
     activeTab.view.setAutoResize({ width: true, height: true });
   }

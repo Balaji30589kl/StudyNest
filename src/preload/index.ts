@@ -10,6 +10,7 @@ const api: StudyNestApi = {
   goBack: (tabId?: string) => ipcRenderer.invoke(IPC_CHANNELS.GO_BACK, tabId),
   goForward: (tabId?: string) => ipcRenderer.invoke(IPC_CHANNELS.GO_FORWARD, tabId),
   refresh: (tabId?: string) => ipcRenderer.invoke(IPC_CHANNELS.REFRESH, tabId),
+  setChromeHeight: (height: number) => ipcRenderer.invoke(IPC_CHANNELS.SET_CHROME_HEIGHT, height),
   minimize: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_MINIMIZE),
   toggleMaximize: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_TOGGLE_MAXIMIZE),
   close: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_CLOSE)

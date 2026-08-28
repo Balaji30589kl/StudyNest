@@ -67,6 +67,9 @@ function setupBrowserIpc(window: BrowserWindow, manager: TabManager): void {
   ipcMain.handle(IPC_CHANNELS.GO_BACK, (_event, tabId?: string) => manager.goBack(tabId));
   ipcMain.handle(IPC_CHANNELS.GO_FORWARD, (_event, tabId?: string) => manager.goForward(tabId));
   ipcMain.handle(IPC_CHANNELS.REFRESH, (_event, tabId?: string) => manager.refresh(tabId));
+  ipcMain.handle(IPC_CHANNELS.SET_CHROME_HEIGHT, (_event, height: number) => {
+    manager.setChromeHeight(height);
+  });
 
   window.on('resize', () => {
     manager.layoutActiveTab();

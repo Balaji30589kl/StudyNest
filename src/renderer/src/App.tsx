@@ -1,9 +1,20 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import { BROWSER_CHROME_HEIGHT, BrowserStateSnapshot, BrowserTabState } from '../../shared/ipc.js';
 import { displayUrl } from '../../shared/url.js';
+import {
+  buildOmniboxSuggestions,
+  createRecentEntryList,
+  fetchDuckDuckGoSuggestions,
+  OmniboxSuggestion,
+  toSearchSubmissionValue
+} from './omnibox.js';
 
 const DEFAULT_HOME_PAGE = 'https://example.com';
 const HOME_PAGE_STORAGE_KEY = 'studynest.homePage';
+const RECENT_SEARCHES_STORAGE_KEY = 'studynest.recentSearches';
+const OMNIBOX_SUGGESTION_ROW_HEIGHT = 44;
+const OMNIBOX_SUGGESTION_MAX_ROWS = 6;
+const OMNIBOX_PANEL_PADDING = 16;
 
 const bridge = typeof window !== 'undefined' && window.studyNest ? window.studyNest : null;
 
@@ -17,11 +28,28 @@ export function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [homePage, setHomePage] = useState(DEFAULT_HOME_PAGE);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [recentEntries, setRecentEntries] = useState<string[]>([]);
+  const [omniboxSuggestions, setOmniboxSuggestions] = useState<OmniboxSuggestion[]>([]);
+  const [omniboxLoading, setOmniboxLoading] = useState(false);
+  const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0);
+  const [chromeHeight, setChromeHeight] = useState(BROWSER_CHROME_HEIGHT);
 
   useEffect(() => {
     const savedHomePage = window.localStorage.getItem(HOME_PAGE_STORAGE_KEY);
     if (savedHomePage) {
       setHomePage(savedHomePage);
+    }
+
+    const savedRecentEntries = window.localStorage.getItem(RECENT_SEARCHES_STORAGE_KEY);
+    if (savedRecentEntries) {
+      try {
+        const parsed = JSON.parse(savedRecentEntries) as unknown;
+        if (Array.isArray(parsed)) {
+          setRecentEntries(parsed.filter((entry): entry is string => typeof entry === 'string'));
+        }
+      } catch {
+        // Ignore malformed local state.
+      }
     }
   }, []);
 
@@ -53,7 +81,85 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isEditing) {
+      setOmniboxSuggestions([]);
+      setOmniboxLoading(false);
+      setHighlightedSuggestionIndex(0);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      setOmniboxLoading(true);
+
+      void fetchDuckDuckGoSuggestions(addressInput, controller.signal)
+        .then((remoteSuggestions) => {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          const nextSuggestions = buildOmniboxSuggestions(addressInput, browserState.tabs, recentEntries, remoteSuggestions);
+          setOmniboxSuggestions(nextSuggestions);
+          setHighlightedSuggestionIndex(0);
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) {
+            const nextSuggestions = buildOmniboxSuggestions(addressInput, browserState.tabs, recentEntries, []);
+            setOmniboxSuggestions(nextSuggestions);
+            setHighlightedSuggestionIndex(0);
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setOmniboxLoading(false);
+          }
+        });
+    }, 150);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [addressInput, browserState.tabs, isEditing, recentEntries]);
+
   const activeTab = useMemo(() => getActiveTab(browserState), [browserState]);
+  const visibleSuggestions = useMemo(() => {
+    if (!isEditing) {
+      return [] as OmniboxSuggestion[];
+    }
+
+    if (omniboxLoading && omniboxSuggestions.length === 0) {
+      return [
+        {
+          id: 'omnibox-loading',
+          kind: 'remote-search' as const,
+          label: 'Searching suggestions...',
+          detail: 'DuckDuckGo',
+          value: addressInput.trim()
+        }
+      ] as OmniboxSuggestion[];
+    }
+
+    return omniboxSuggestions;
+  }, [addressInput, isEditing, omniboxLoading, omniboxSuggestions]);
+
+  const omniboxPanelHeight = useMemo(() => {
+    if (!isEditing || visibleSuggestions.length === 0) {
+      return 0;
+    }
+
+    return Math.min(visibleSuggestions.length, OMNIBOX_SUGGESTION_MAX_ROWS) * OMNIBOX_SUGGESTION_ROW_HEIGHT + OMNIBOX_PANEL_PADDING;
+  }, [isEditing, visibleSuggestions.length]);
+
+  useEffect(() => {
+    const nextChromeHeight = BROWSER_CHROME_HEIGHT + omniboxPanelHeight;
+    setChromeHeight(nextChromeHeight);
+
+    if (bridge) {
+      void bridge.setChromeHeight(nextChromeHeight);
+    }
+  }, [omniboxPanelHeight]);
 
   useEffect(() => {
     if (!activeTab || isEditing) {
@@ -62,6 +168,39 @@ export function App() {
 
     setAddressInput(displayUrl(activeTab.url));
   }, [activeTab?.id, activeTab?.url, isEditing]);
+
+  function persistRecentEntry(value: string) {
+    const nextRecentEntries = createRecentEntryList(recentEntries, value);
+    setRecentEntries(nextRecentEntries);
+    window.localStorage.setItem(RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(nextRecentEntries));
+  }
+
+  async function commitNavigation(value: string) {
+    if (!bridge) {
+      return;
+    }
+
+    const navigationTarget = value.trim();
+    if (navigationTarget.length === 0) {
+      return;
+    }
+
+    await bridge.navigate(navigationTarget, browserState.activeTabId ?? undefined);
+    persistRecentEntry(navigationTarget);
+    setIsEditing(false);
+    setOmniboxSuggestions([]);
+    setOmniboxLoading(false);
+    setHighlightedSuggestionIndex(0);
+  }
+
+  async function submitSuggestion(index: number) {
+    const suggestion = visibleSuggestions[index];
+    if (!suggestion) {
+      return;
+    }
+
+    await commitNavigation(toSearchSubmissionValue(suggestion));
+  }
 
   async function openHomeTab() {
     if (!bridge) {
@@ -73,16 +212,45 @@ export function App() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (visibleSuggestions.length > 0 && highlightedSuggestionIndex >= 0) {
+      await submitSuggestion(highlightedSuggestionIndex);
+      return;
+    }
+
     if (addressInput.trim().length === 0) {
       return;
     }
 
-    if (!bridge) {
+    await commitNavigation(addressInput);
+  }
+
+  function handleAddressKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (visibleSuggestions.length === 0) {
+      if (event.key === 'Escape') {
+        setIsEditing(false);
+      }
       return;
     }
 
-    await bridge.navigate(addressInput, browserState.activeTabId ?? undefined);
-    setIsEditing(false);
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlightedSuggestionIndex((currentIndex) => (currentIndex + 1) % visibleSuggestions.length);
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlightedSuggestionIndex((currentIndex) => (currentIndex - 1 + visibleSuggestions.length) % visibleSuggestions.length);
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setIsEditing(false);
+      setOmniboxSuggestions([]);
+      setOmniboxLoading(false);
+      setHighlightedSuggestionIndex(0);
+    }
   }
 
   function handleSaveSettings() {
@@ -111,7 +279,13 @@ export function App() {
   }
 
   return (
-    <div className="app-shell" style={{ ['--chrome-height' as string]: `${BROWSER_CHROME_HEIGHT}px` }}>
+    <div
+      className="app-shell"
+      style={{
+        ['--chrome-height' as string]: `${chromeHeight}px`,
+        ['--omnibox-panel-height' as string]: `${omniboxPanelHeight}px`
+      }}
+    >
       <header className="titlebar">
         <div className="brand-block">
           <div className="brand-mark">S</div>
@@ -153,14 +327,19 @@ export function App() {
         <form className="address-form" onSubmit={handleSubmit}>
           <input
             value={addressInput}
-            onChange={(event) => setAddressInput(event.target.value)}
+            onChange={(event) => {
+              setAddressInput(event.target.value);
+              setIsEditing(true);
+            }}
             onFocus={() => setIsEditing(true)}
             onBlur={() => {
               setIsEditing(false);
+              setOmniboxLoading(false);
               if (activeTab) {
                 setAddressInput(displayUrl(activeTab.url));
               }
             }}
+            onKeyDown={handleAddressKeyDown}
             placeholder="Enter a URL or search term"
             spellCheck={false}
           />
@@ -171,6 +350,29 @@ export function App() {
           Settings
         </button>
       </section>
+
+      {isEditing ? (
+        <section className="omnibox-panel" aria-label="Search suggestions">
+          {visibleSuggestions.length > 0 ? (
+            visibleSuggestions.map((suggestion, index) => (
+              <button
+                key={suggestion.id}
+                type="button"
+                className={index === highlightedSuggestionIndex ? 'omnibox-item active' : 'omnibox-item'}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  void submitSuggestion(index);
+                }}
+              >
+                <span className="omnibox-item-label">{suggestion.label}</span>
+                <span className="omnibox-item-detail">{suggestion.detail}</span>
+              </button>
+            ))
+          ) : (
+            <div className="omnibox-empty-state">Start typing to search or open a site.</div>
+          )}
+        </section>
+      ) : null}
 
       <section className="tabs-row" aria-label="Tabs">
         {browserState.tabs.map((tab) => (
@@ -237,7 +439,7 @@ export function App() {
             <span>No active tab</span>
           )}
         </div>
-        <div className="status-meta">Phase 1 shell | UI height {BROWSER_CHROME_HEIGHT}px</div>
+        <div className="status-meta">Phase 1.1 shell | chrome {chromeHeight}px</div>
       </main>
     </div>
   );
