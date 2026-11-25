@@ -2,6 +2,8 @@
 
 A focus-first desktop browser for students, built with Electron, React, and TypeScript.
 
+> **New here?** Start with the [project documentation](docs/PROJECT_DOCUMENTATION.md): the problem, the approach, the architecture, every key decision and the challenges solved along the way.
+
 StudyNest is a normal tabbed browser until you switch on **Study Mode**. Then every page is decided before it renders: block-listed sites are blocked, allow-listed study sites open, and everything else is checked by AI. Video sites are judged per video, so a lecture opens and a funny Short doesn't. StudyNest also tracks your focus time and shows what it blocked.
 
 ## Install (Windows)
