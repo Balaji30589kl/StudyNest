@@ -9,7 +9,9 @@ const tabs: BrowserTabState[] = [
     url: 'https://www.youtube.com/',
     canGoBack: false,
     canGoForward: false,
-    isLoading: false
+    isLoading: false,
+    blocked: null,
+    checking: false
   },
   {
     id: 'tab-2',
@@ -17,7 +19,9 @@ const tabs: BrowserTabState[] = [
     url: 'https://leetcode.com/',
     canGoBack: false,
     canGoForward: false,
-    isLoading: false
+    isLoading: false,
+    blocked: null,
+    checking: false
   }
 ];
 

@@ -1,3 +1,5 @@
+import { isStudyNestLandingPageUrl } from './landing-page.js';
+
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:']);
 const SEARCH_BASE = 'https://duckduckgo.com/?q=';
 const SEARCH_HOSTS = new Set(['duckduckgo.com']);
@@ -104,6 +106,10 @@ export function isSafeNavigationUrl(input: string): boolean {
 export function displayUrl(input: string): string {
   if (input === 'about:blank') {
     return 'New tab';
+  }
+
+  if (isStudyNestLandingPageUrl(input)) {
+    return 'StudyNest Start';
   }
 
   const searchQuery = extractSearchQueryFromUrl(input);

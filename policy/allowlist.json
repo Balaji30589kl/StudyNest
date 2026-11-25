@@ -1,0 +1,22 @@
+{
+  "description": "Always allowed during Study Mode. The most specific rule wins; a block rule wins a tie.",
+  "rules": [
+    "duckduckgo.com",
+    "google.com/search",
+    "scholar.google.com",
+    "wikipedia.org",
+    "khanacademy.org",
+    "coursera.org",
+    "edx.org",
+    "nptel.ac.in",
+    "ocw.mit.edu",
+    "stackoverflow.com",
+    "github.com",
+    "developer.mozilla.org",
+    "docs.python.org",
+    "leetcode.com",
+    "geeksforgeeks.org",
+    "w3schools.com",
+    "arxiv.org"
+  ]
+}

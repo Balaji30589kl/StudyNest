@@ -1,0 +1,5 @@
+{
+  "description": "Desktop app configuration. gatewayUrl is the StudyNest AI gateway (see gateway/README.md). STUDYNEST_GATEWAY_URL overrides it.",
+  "gatewayUrl": "http://127.0.0.1:8787",
+  "policyRefreshHours": 6
+}

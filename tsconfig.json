@@ -12,7 +12,13 @@
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node", "vitest/globals"]
+    "types": [
+      "node",
+      "vitest/globals"
+    ]
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "gateway/src"
+  ]
 }

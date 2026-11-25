@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "minConfidence": 0.6,
+  "distractingCategories": ["social", "entertainment", "shopping", "gaming"],
+  "perPageHosts": ["127.0.0.1"]
+}

@@ -1,0 +1,19 @@
+{
+  "description": "Always blocked during Study Mode. Rules are a domain, optionally followed by a path prefix (youtube.com/shorts). Subdomains match.",
+  "rules": [
+    "facebook.com",
+    "instagram.com",
+    "tiktok.com",
+    "twitter.com",
+    "x.com",
+    "reddit.com",
+    "netflix.com",
+    "primevideo.com",
+    "hotstar.com",
+    "twitch.tv",
+    "9gag.com",
+    "youtube.com/shorts",
+    "youtube.com/feed/trending",
+    "youtube.com/gaming"
+  ]
+}

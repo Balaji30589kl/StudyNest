@@ -1,0 +1,22 @@
+{
+  "name": "studynest-gateway",
+  "private": true,
+  "version": "0.4.0",
+  "description": "StudyNest AI gateway: holds the LLM key, classifies pages, serves block/allow policy.",
+  "type": "module",
+  "main": "dist/gateway/src/main.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/gateway/src/main.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.10",
+    "typescript": "^5.6.3"
+  }
+}

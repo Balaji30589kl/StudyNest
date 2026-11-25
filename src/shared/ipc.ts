@@ -1,3 +1,7 @@
+import type { Classification, PageCategory } from './classification.js';
+import type { InsightsSnapshot } from './insights.js';
+import type { PolicyReason, StudySettings } from './study-policy.js';
+
 export const IPC_CHANNELS = {
   STATE_REQUEST: 'browser:state-request',
   STATE_CHANGED: 'browser:state-changed',
@@ -9,12 +13,46 @@ export const IPC_CHANNELS = {
   GO_FORWARD: 'browser:go-forward',
   REFRESH: 'browser:refresh',
   SET_CHROME_HEIGHT: 'browser:set-chrome-height',
+  SET_CONTENT_INSET_RIGHT: 'browser:set-content-inset-right',
+  CAPTURE_PAGE: 'browser:capture-page',
+  SET_PAGE_VIEW_HIDDEN: 'browser:set-page-view-hidden',
+  STUDY_STATE_REQUEST: 'study:state-request',
+  STUDY_STATE_CHANGED: 'study:state-changed',
+  STUDY_START: 'study:start',
+  STUDY_STOP: 'study:stop',
+  STUDY_UPDATE_SETTINGS: 'study:update-settings',
+  STUDY_CLEAR_HISTORY: 'study:clear-history',
+  AI_STATE_REQUEST: 'ai:state-request',
+  AI_STATE_CHANGED: 'ai:state-changed',
+  AI_CLEAR_CACHE: 'ai:clear-cache',
+  POLICY_STATE_REQUEST: 'policy:state-request',
+  INSIGHTS_REQUEST: 'insights:request',
+  ACCOUNT_STATE_REQUEST: 'account:state-request',
+  ACCOUNT_STATE_CHANGED: 'account:state-changed',
+  ACCOUNT_UPDATE_PROFILE: 'account:update-profile',
+  SYNC_CHOOSE_FOLDER: 'sync:choose-folder',
+  SYNC_CONFIGURE: 'sync:configure',
+  SYNC_NOW: 'sync:now',
+  DIAGNOSTICS_REQUEST: 'app:diagnostics',
+  BROWSER_COMMAND: 'browser:command',
+  DOWNLOADS_STATE_REQUEST: 'downloads:state-request',
+  DOWNLOADS_CHANGED: 'downloads:changed',
+  DOWNLOADS_OPEN: 'downloads:open',
+  DOWNLOADS_SHOW: 'downloads:show',
+  DOWNLOADS_CANCEL: 'downloads:cancel',
+  DOWNLOADS_CLEAR: 'downloads:clear',
+  PERMISSIONS_LIST: 'permissions:list',
+  PERMISSIONS_RESET: 'permissions:reset',
+  UPDATE_STATE_REQUEST: 'update:state-request',
+  UPDATE_CHANGED: 'update:changed',
+  UPDATE_CHECK: 'update:check',
+  UPDATE_INSTALL: 'update:install',
   WINDOW_MINIMIZE: 'window:minimize',
   WINDOW_TOGGLE_MAXIMIZE: 'window:toggle-maximize',
   WINDOW_CLOSE: 'window:close'
 } as const;
 
-export const BROWSER_CHROME_HEIGHT = 220;
+export const BROWSER_CHROME_HEIGHT = 148;
 
 export type BrowserTabState = {
   id: string;
@@ -23,6 +61,24 @@ export type BrowserTabState = {
   canGoBack: boolean;
   canGoForward: boolean;
   isLoading: boolean;
+  /** Present when the main process replaced this tab's page with a block page. */
+  blocked: BlockedNavigationInfo | null;
+  /** True while Study Mode checks this tab's page before showing it. */
+  checking: boolean;
+};
+
+export type BlockedNavigationInfo = {
+  url: string;
+  host: string;
+  action: 'block';
+  reason: PolicyReason;
+  classification?: Pick<Classification, 'category' | 'confidence' | 'providerId'>;
+};
+
+/** Still image of the active page, used to show overlays above where the native page view sits. */
+export type PageSnapshot = {
+  dataUrl: string;
+  bounds: { x: number; y: number; width: number; height: number };
 };
 
 export type BrowserStateSnapshot = {
@@ -39,6 +95,145 @@ export type TabIdPayload = {
   tabId: string;
 };
 
+export type StudyEventType =
+  | 'session-start'
+  | 'session-end'
+  | 'visit'
+  | 'blocked'
+  | 'focus-lost'
+  | 'focus-regained'
+  | 'classified';
+
+export type StudyEvent = {
+  id: string;
+  type: StudyEventType;
+  at: number;
+  sessionId: string | null;
+  host?: string;
+  url?: string;
+  detail?: string;
+};
+
+export type StudySessionStats = {
+  focusedMs: number;
+  awayMs: number;
+  focusLosses: number;
+  /** All blocked page loads (by list or by AI). */
+  blockedCount: number;
+  blockedByList: number;
+  blockedByAi: number;
+  /** Pages checked by AI during the session, and how many of those were allowed. */
+  aiChecks: number;
+  aiAllowed: number;
+  pagesVisited: number;
+  /** Foreground time per host while the window was focused. */
+  hostMs: Record<string, number>;
+  /** Blocked page loads per host. */
+  blockedHosts: Record<string, number>;
+  /** AI verdicts per category. */
+  categoryCounts: Partial<Record<PageCategory, number>>;
+};
+
+export type StudySessionState = {
+  id: string;
+  startedAt: number;
+  /** Null for an open-ended session (Study Mode switched on without a timer). */
+  endsAt: number | null;
+  durationMinutes: number | null;
+};
+
+export type StudySessionSummary = StudySessionState & {
+  endedAt: number;
+  endReason: 'completed' | 'stopped';
+  stats: StudySessionStats;
+};
+
+export type StudyStateSnapshot = {
+  settings: StudySettings;
+  policy: PolicySnapshot;
+  session: StudySessionState | null;
+  /** Live stats for the running session, or the last finished session. */
+  stats: StudySessionStats | null;
+  recentEvents: StudyEvent[];
+  recentSessions: StudySessionSummary[];
+};
+
+/** Where the Study Mode rules came from. Users can't edit them. */
+export type PolicySnapshot = {
+  source: 'gateway' | 'gateway-cache' | 'bundled' | 'built-in' | 'override';
+  version: string | null;
+  updatedAt: number | null;
+  blockRules: number;
+  allowRules: number;
+  aiEnabled: boolean;
+  lastError: string | null;
+};
+
+export type AiStats = {
+  checks: number;
+  cacheHits: number;
+  gatewayCalls: number;
+  fallbacks: number;
+  errors: number;
+  lastError: string | null;
+};
+
+export type AiStateSnapshot = {
+  gateway: { url: string; status: 'online' | 'offline' | 'unknown' };
+  stats: AiStats;
+  cacheSize: number;
+  recentClassifications: Classification[];
+};
+
+export type AccountStateSnapshot = {
+  profile: { id: string; displayName: string; createdAt: number };
+  device: { id: string; name: string };
+  sync: {
+    folder: string | null;
+    includeBrowsingDetails: boolean;
+    lastSyncAt: number | null;
+    lastError: string | null;
+    syncing: boolean;
+  };
+};
+
+export type DiagnosticsSnapshot = {
+  appVersion: string;
+  electronVersion: string;
+  chromeVersion: string;
+  platform: string;
+  dataDirectory: string;
+  logFile: string;
+  uptimeMs: number;
+  recentProblems: Array<{ at: number; level: string; message: string }>;
+};
+
+/** Commands main asks the renderer to perform (keyboard shortcuts that need renderer state). */
+export type BrowserCommand = { type: 'new-tab' } | { type: 'focus-address' };
+
+export type DownloadEntry = {
+  id: string;
+  filename: string;
+  host: string;
+  receivedBytes: number;
+  totalBytes: number;
+  state: 'progressing' | 'completed' | 'cancelled' | 'interrupted';
+  savePath: string | null;
+  startedAt: number;
+};
+
+export type SitePermission = { origin: string; key: string; decision: 'allow' | 'deny'; decidedAt: number };
+
+export type UpdateState = {
+  status: 'disabled' | 'idle' | 'checking' | 'up-to-date' | 'downloading' | 'downloaded' | 'error';
+  currentVersion: string;
+  availableVersion?: string;
+  percent?: number;
+  lastCheckedAt?: number;
+  /** Why updates are disabled, or a friendly error. */
+  message?: string;
+};
+
 export type StudyNestApi = {
   getState(): Promise<BrowserStateSnapshot>;
   newTab(url?: string): Promise<BrowserStateSnapshot>;
@@ -49,6 +244,36 @@ export type StudyNestApi = {
   goForward(tabId?: string): Promise<BrowserStateSnapshot>;
   refresh(tabId?: string): Promise<BrowserStateSnapshot>;
   setChromeHeight(height: number): Promise<void>;
+  setContentInsetRight(width: number): Promise<void>;
+  capturePage(): Promise<PageSnapshot | null>;
+  setPageViewHidden(hidden: boolean): Promise<void>;
+  getStudyState(): Promise<StudyStateSnapshot>;
+  /** Pass minutes for a timed session, or null to switch Study Mode on without a timer. */
+  startStudySession(durationMinutes: number | null): Promise<StudyStateSnapshot>;
+  stopStudySession(): Promise<StudyStateSnapshot>;
+  updateStudySettings(settings: Partial<StudySettings>): Promise<StudyStateSnapshot>;
+  clearStudyHistory(): Promise<StudyStateSnapshot>;
+  getAiState(): Promise<AiStateSnapshot>;
+  clearAiCache(): Promise<AiStateSnapshot>;
+  getInsights(): Promise<InsightsSnapshot>;
+  getAccountState(): Promise<AccountStateSnapshot>;
+  updateProfile(profile: { displayName?: string; deviceName?: string }): Promise<AccountStateSnapshot>;
+  /** Opens a native folder picker in main; the renderer never touches the file system. */
+  chooseSyncFolder(): Promise<AccountStateSnapshot>;
+  configureSync(config: { folder?: null; includeBrowsingDetails?: boolean }): Promise<AccountStateSnapshot>;
+  syncNow(): Promise<AccountStateSnapshot>;
+  getDiagnostics(): Promise<DiagnosticsSnapshot>;
+  getDownloads(): Promise<DownloadEntry[]>;
+  openDownload(id: string): Promise<void>;
+  showDownload(id: string): Promise<void>;
+  cancelDownload(id: string): Promise<void>;
+  clearDownloads(): Promise<DownloadEntry[]>;
+  getSitePermissions(): Promise<SitePermission[]>;
+  /** No origin resets everything; origin alone resets that site; origin + key resets one decision. */
+  resetSitePermissions(origin?: string, key?: string): Promise<SitePermission[]>;
+  getUpdateState(): Promise<UpdateState>;
+  checkForUpdates(): Promise<UpdateState>;
+  installUpdate(): Promise<void>;
   minimize(): Promise<void>;
   toggleMaximize(): Promise<void>;
   close(): Promise<void>;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildSearchUrl, classifyNavigationInput, displayUrl, isSafeNavigationUrl, normalizeNavigationInput } from './url.js';
+import { LANDING_PAGE_URL } from './landing-page.js';
 
 describe('navigation url helpers', () => {
   it('adds https to bare hostnames', () => {
@@ -21,6 +22,10 @@ describe('navigation url helpers', () => {
 
   it('shows a readable label for blank tabs', () => {
     expect(displayUrl('about:blank')).toBe('New tab');
+  });
+
+  it('shows a readable label for the StudyNest landing page', () => {
+    expect(displayUrl(LANDING_PAGE_URL)).toBe('StudyNest Start');
   });
 
   it('shows the search query instead of the raw search url', () => {

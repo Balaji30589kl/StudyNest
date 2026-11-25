@@ -11,6 +11,8 @@ Add a Chrome-like omnibox to StudyNest without introducing Study Mode or AI poli
 - Click-to-select suggestion behavior.
 - Dynamic Electron chrome height while the suggestion panel is open.
 - Search result display formatting so the query is visible instead of the raw search URL.
+- Floating suggestion dropdown that overlays the browser chrome instead of pushing tabs down.
+- Branded in-app landing page for new tabs instead of Example Domain.
 
 ## Key Design Choices
 - Bare words are treated as searches.
@@ -18,6 +20,8 @@ Add a Chrome-like omnibox to StudyNest without introducing Study Mode or AI poli
 - Suggestion logic stays in the renderer.
 - The main process still owns browser navigation and BrowserView layout.
 - The renderer asks the main process to resize the chrome when the suggestion panel opens or closes.
+- The suggestion panel now floats over the shell so the tabs row remains visible.
+- The landing page is shared between renderer and main process so both use the same start page.
 
 ## How It Works
 1. The user types into the address bar.

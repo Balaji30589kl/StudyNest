@@ -1,0 +1,54 @@
+# Windows packaging for StudyNest. Build locally with `npm run dist:win`.
+appId: com.studynest.browser
+productName: StudyNest
+copyright: Copyright © 2026 StudyNest
+
+directories:
+  output: release/${version}
+  buildResources: build
+
+files:
+  - dist/**
+  - dist-electron/**
+  - package.json
+  - "!**/*.map"
+
+asar: true
+
+# Backend rules and app config ship next to the app (read-only for users).
+extraResources:
+  - from: policy
+    to: policy
+    filter: ["*.json"]
+  - from: config
+    to: config
+    filter: ["*.json"]
+
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: StudyNest
+  # Keep rules, history and settings if the app is uninstalled and reinstalled.
+  deleteAppDataOnUninstall: false
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
+
+# Auto-update feed. Releases are created as drafts by CI and published manually.
+publish:
+  provider: github
+  owner: Balaji30589kl
+  repo: StudyNest
+  releaseType: draft

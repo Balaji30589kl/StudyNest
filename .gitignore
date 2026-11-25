@@ -10,3 +10,8 @@ coverage
 *.log
 .env
 .env.*
+e2e-output
+release
+gateway/dist
+gateway/.env
+!.env.example
