@@ -8,7 +8,8 @@ import { createEmptyStudyData, MemoryStudyStore } from './study-store.js';
 const POLICY: StudyPolicy = {
   block: ['reddit.com', 'youtube.com/shorts'],
   allow: ['wikipedia.org'],
-  classification: { ...DEFAULT_CLASSIFICATION_POLICY, perPageHosts: ['youtube.com'] }
+  classification: { ...DEFAULT_CLASSIFICATION_POLICY, perPageHosts: ['youtube.com'] },
+  focus: []
 };
 
 function verdict(category: Classification['category'], key: string): Classification {

@@ -31,10 +31,11 @@ export function loadPolicyDir(dir: string): StudyPolicy | null {
   const block = readJson(path.join(dir, 'blocklist.json'));
   const allow = readJson(path.join(dir, 'allowlist.json'));
   const classification = readJson(path.join(dir, 'classification.json'));
+  const focus = readJson(path.join(dir, 'focus.json'));
   if (block === undefined && allow === undefined) {
     return null;
   }
-  return sanitizeStudyPolicy({ block, allow, classification }, FALLBACK_POLICY);
+  return sanitizeStudyPolicy({ block, allow, classification, focus }, FALLBACK_POLICY);
 }
 
 /**

@@ -1,0 +1,22 @@
+{
+  "rules": [
+    {
+      "hosts": [
+        "127.0.0.1",
+        "localhost"
+      ],
+      "hide": [
+        "#recommendations",
+        ".hover-preview",
+        "img[src*=\"/an_webp/\"]"
+      ],
+      "note": {
+        "text": "Focus view is on",
+        "before": "#article"
+      },
+      "blockRequests": [
+        "127.0.0.1/an_webp/"
+      ]
+    }
+  ]
+}

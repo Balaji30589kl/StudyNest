@@ -96,6 +96,7 @@ type TabInputListener = (event: ElectronEvent, input: Input) => void;
 type NavigationListener = (navigation: CommittedNavigation) => void;
 type ContextMenuListener = (tabId: string, params: ContextMenuParams, webContents: WebContents) => void;
 type StateListener = (snapshot: BrowserStateSnapshot) => void;
+type DocumentReadyListener = (page: LoadedPage) => void;
 
 const MAX_CLOSED_TABS = 25;
 const ZOOM_STEP = 0.5;
@@ -160,6 +161,7 @@ export class TabManager {
   private readonly titleListeners = new Set<NavigationListener>();
   private readonly contextMenuListeners = new Set<ContextMenuListener>();
   private readonly stateListeners = new Set<StateListener>();
+  private readonly documentReadyListeners = new Set<DocumentReadyListener>();
   private readonly closedTabUrls: string[] = [];
 
   constructor(private readonly window: BrowserWindow) {
@@ -204,6 +206,27 @@ export class TabManager {
   onContextMenu(listener: ContextMenuListener): () => void {
     this.contextMenuListeners.add(listener);
     return () => this.contextMenuListeners.delete(listener);
+  }
+
+  /**
+   * A web page's document is parsed (before images and scripts finish), the
+   * earliest point to style it. Used by Study Mode's focus view.
+   */
+  onDocumentReady(listener: DocumentReadyListener): () => void {
+    this.documentReadyListeners.add(listener);
+    return () => this.documentReadyListeners.delete(listener);
+  }
+
+  /** Every tab currently showing a loaded web page (not built-in pages, placeholders or block pages). */
+  getWebPages(): LoadedPage[] {
+    const pages: LoadedPage[] = [];
+    for (const tab of this.tabs.values()) {
+      const contents = tab.view.webContents;
+      if (contents.isDestroyed() || !tab.loaded || tab.blocked || isInternalUrl(tab.url)) continue;
+      const url = contents.getURL();
+      if (isWebUrl(url)) pages.push({ tabId: tab.id, url, webContents: contents });
+    }
+    return pages;
   }
 
   /** Any change to the tabs (used to save the session). */
@@ -1072,6 +1095,12 @@ export class TabManager {
         this.createTab(url, { activate: disposition !== 'background-tab', afterTabId: tab.id });
       }
       return { action: 'deny' };
+    });
+
+    webContents.on('dom-ready', () => {
+      const url = webContents.getURL();
+      if (tab.blocked || !isWebUrl(url) || internal()) return;
+      for (const listener of this.documentReadyListeners) listener({ tabId: tab.id, url, webContents });
     });
 
     webContents.on('did-finish-load', () => {

@@ -153,8 +153,9 @@ Current output (complete, see `docs/phase-4-productization.md`):
 | 5 Release and Hardening (Windows) | Complete | `docs/phase-5-release-hardening.md` |
 | 6 Pre-render AI checks and gateway | Complete | `docs/phase-6-ai-gateway.md` |
 | 7 Daily browser (new look, everyday features) | Complete | `docs/phase-7-daily-browser.md` |
+| 8 Focus view (in-page distractions during Study Mode) | Complete | `docs/phase-8-focus-view.md` |
 
-Validation gate for every change: `npm run verify` (typecheck, 146 unit tests, app and gateway builds), then `npm run test:e2e` (101 checks against the built app and the real gateway). Before a release: `npm run dist:win` and `node e2e/run.mjs packaged`.
+Validation gate for every change: `npm run verify` (typecheck, 156 unit tests, app and gateway builds), then `npm run test:e2e` (106 checks against the built app and the real gateway). Before a release: `npm run dist:win` and `node e2e/run.mjs packaged`.
 
 ## Phase 5: Release and Hardening (Windows)
 

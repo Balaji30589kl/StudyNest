@@ -5,6 +5,7 @@ All notable changes to StudyNest. Versions follow semantic versioning while pre-
 ## Unreleased
 
 ### Added
+- **Focus view during Study Mode (Phase 8).** Hover previews stop playing on YouTube (including the animated thumbnails of "Up next" cards, which are kept as still images), YouTube video ads are skipped automatically (volume and speed restored for the lecture), ad overlays and slots are hidden, and ads are blocked on every site during a session. Recommendations and comments stay visible: anything opened from them is checked first. Rules are in `policy/focus.json`. Details: `docs/phase-8-focus-view.md`.
 - **A new look and a complete everyday browser (Phase 7).** A compact two-row chrome with its own design (light, dark or follow Windows); tabs with site icons, pinning, muting, drag to reorder and a right-click menu; an address bar with inline autocomplete, grouped suggestions (tabs, bookmarks, history, search), a security indicator, zoom chip and bookmark star; bookmarks and a bookmarks bar; browsing history; find in page; session restore; right-click menus in pages; print; a choice of search engines; clear browsing data; "Make default browser"; and built-in pages for the new tab, history, bookmarks and settings. Details: `docs/phase-7-daily-browser.md`.
 - **Ad and tracker blocking** with the EasyList / uBlock Origin lists, on by default, with a per-site switch in the address bar.
 - Opening StudyNest again, or clicking a link in another app, opens a tab in the running window.

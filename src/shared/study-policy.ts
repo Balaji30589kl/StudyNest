@@ -1,4 +1,5 @@
 import { Classification, DEFAULT_DISTRACTING_CATEGORIES, isPageCategory, PAGE_CATEGORIES, PageCategory } from './classification.js';
+import { DEFAULT_FOCUS_RULES, FocusRule, sanitizeFocusRules } from './focus-rules.js';
 
 /**
  * Deterministic Study Mode policy.
@@ -28,6 +29,8 @@ export type StudyPolicy = {
   block: string[];
   allow: string[];
   classification: ClassificationPolicy;
+  /** Elements hidden inside pages during Study Mode (focus view). */
+  focus: FocusRule[];
 };
 
 /** User-level preferences. Rules are not user settings. */
@@ -79,7 +82,8 @@ export const DEFAULT_CLASSIFICATION_POLICY: ClassificationPolicy = {
 export const FALLBACK_POLICY: StudyPolicy = {
   block: ['facebook.com', 'instagram.com', 'tiktok.com', 'x.com', 'twitter.com', 'reddit.com', 'netflix.com', 'youtube.com/shorts'],
   allow: ['duckduckgo.com', 'wikipedia.org', 'khanacademy.org', 'stackoverflow.com', 'github.com', 'developer.mozilla.org'],
-  classification: DEFAULT_CLASSIFICATION_POLICY
+  classification: DEFAULT_CLASSIFICATION_POLICY,
+  focus: DEFAULT_FOCUS_RULES
 };
 
 export const DEFAULT_STUDY_SETTINGS: StudySettings = { defaultDurationMinutes: 25 };
@@ -306,13 +310,17 @@ export function sanitizeClassificationPolicy(raw: unknown, base: ClassificationP
 }
 
 /** Validates policy files (from disk or the gateway). Missing parts fall back to the base. */
-export function sanitizeStudyPolicy(raw: { block?: unknown; allow?: unknown; classification?: unknown }, base: StudyPolicy = FALLBACK_POLICY): StudyPolicy {
+export function sanitizeStudyPolicy(
+  raw: { block?: unknown; allow?: unknown; classification?: unknown; focus?: unknown },
+  base: StudyPolicy = FALLBACK_POLICY
+): StudyPolicy {
   const block = readList(raw.block);
   const allow = readList(raw.allow);
   return {
     block: block ? normalizeRuleList(block) : [...base.block],
     allow: allow ? normalizeRuleList(allow) : [...base.allow],
-    classification: raw.classification === undefined ? { ...base.classification } : sanitizeClassificationPolicy(raw.classification, base.classification)
+    classification: raw.classification === undefined ? { ...base.classification } : sanitizeClassificationPolicy(raw.classification, base.classification),
+    focus: sanitizeFocusRules(raw.focus) ?? (base.focus ?? DEFAULT_FOCUS_RULES).map((rule) => ({ ...rule }))
   };
 }
 

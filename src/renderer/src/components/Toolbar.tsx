@@ -87,6 +87,7 @@ export function Toolbar(props: Props) {
         inputRef={props.addressInputRef}
         onEditingChange={props.onEditingChange}
         onToggleBookmark={props.onToggleBookmark}
+        studyActive={studySession !== null}
       />
 
       <div className={studySession ? 'study-control active' : 'study-control'}>

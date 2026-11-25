@@ -19,6 +19,8 @@ import { UpdateService } from './update/update-service.js';
 import { setupProductServices } from './product/product-services.js';
 import { JsonFileStore } from './storage/json-file-store.js';
 import type { AccountService } from './account/account-service.js';
+import { FocusView } from './study/focus-view.js';
+import { focusBlocksRequest } from '../shared/focus-rules.js';
 import { StudyModeService } from './study/study-mode-service.js';
 import { JsonFileStudyStore } from './study/study-store.js';
 import { TabManager } from './tab-manager.js';
@@ -357,6 +359,16 @@ function setupStudyMode(window: BrowserWindow, manager: TabManager, policy: Poli
   window.on('focus', () => service.setWindowFocused(true));
 
   manager.setNavigationGuard(service);
+
+  // Focus view: hide recommendation feeds, hover previews, Shorts and comments inside pages during a session.
+  const focus = new FocusView({
+    getRules: () => policy.getPolicy().focus,
+    isStudyActive: () => service.getSnapshot().session !== null,
+    getOpenPages: () => manager.getWebPages(),
+    log: (message, data) => logger.write('warn', 'focus', message, data)
+  });
+  manager.onDocumentReady((page) => focus.onDocumentReady(page));
+  service.onChange(() => focus.refresh());
   return service;
 }
 
@@ -472,6 +484,16 @@ function initializeApplication(): void {
     manager: tabManager,
     sendCommand: (command) => sendBrowserCommand(window, command),
     isStudyActive: () => studyService?.getSnapshot().session !== null,
+    studyBlocksRequest: (requestUrl, pageUrl) => {
+      if (!pageUrl || !policyService || studyService?.getSnapshot().session == null) return false;
+      let pageHost: string | null = null;
+      try {
+        pageHost = new URL(pageUrl).hostname;
+      } catch {
+        return false;
+      }
+      return focusBlocksRequest(policyService.getPolicy().focus, pageHost, requestUrl);
+    },
     log: (level, message, data) => logger.write(level, 'browser', message, data)
   });
   browserServices.restoreSession();

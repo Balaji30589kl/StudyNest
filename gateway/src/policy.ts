@@ -14,7 +14,7 @@ function readJson(file: string): unknown {
 }
 
 /**
- * Reads blocklist.json, allowlist.json and classification.json from the policy
+ * Reads blocklist.json, allowlist.json, classification.json and focus.json from the policy
  * folder. The version is a content hash, so clients can tell when it changed.
  */
 export function loadPolicy(dir: string): PolicyDocument {
@@ -22,7 +22,8 @@ export function loadPolicy(dir: string): PolicyDocument {
     {
       block: readJson(path.join(dir, 'blocklist.json')),
       allow: readJson(path.join(dir, 'allowlist.json')),
-      classification: readJson(path.join(dir, 'classification.json'))
+      classification: readJson(path.join(dir, 'classification.json')),
+      focus: readJson(path.join(dir, 'focus.json'))
     },
     FALLBACK_POLICY
   );

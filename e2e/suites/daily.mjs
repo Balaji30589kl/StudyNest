@@ -11,6 +11,18 @@ export default async function daily(results) {
       res.setHeader('content-type', 'text/html; charset=utf-8');
       res.end(article('Eigenvalue notes', 'An eigenvalue scales its eigenvector. Every eigenvalue has an eigenvector. eigenvalue eigenvalue'));
     },
+    '/allowed/lecture': (_req, res) => {
+      res.setHeader('content-type', 'text/html; charset=utf-8');
+      res.end(`<!doctype html><html><head><title>Lecture page</title></head><body>
+        <div id="article"><h1>Lecture 3: Recursion</h1><p>Content stays visible.</p></div>
+        <aside id="recommendations"><a href="/funny">Funny prank compilation</a></aside>
+        <div class="hover-preview">autoplaying preview</div>
+        <img id="animated" src="/an_webp/clip.webp?v=${Date.now()}" alt=""></body></html>`);
+    },
+    '/an_webp/clip.webp': (_req, res) => {
+      res.setHeader('content-type', 'image/svg+xml');
+      res.end('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>');
+    },
     '/second': (_req, res) => {
       res.setHeader('content-type', 'text/html; charset=utf-8');
       res.end(article('Second page', 'Nothing to see.'));
@@ -89,6 +101,45 @@ export default async function daily(results) {
     const engine = await api(() => window.studyNest.updateSettings({ searchEngine: 'bing' }));
     await api((query) => window.studyNest.navigate(query), 'linear algebra');
     results.check('typed searches use the chosen search engine', (await ctx.activeTab()).url.startsWith('https://www.bing.com/search?q=linear%20algebra'), `${engine.searchEngine} ${(await ctx.activeTab()).url}`);
+    await api((url) => window.studyNest.navigate(url), secondUrl);
+    await ctx.waitFor(async () => (await ctx.contentUrl()) === secondUrl, 10_000);
+
+    // Focus view: distracting parts of an allowed page are hidden during Study Mode only.
+    const lectureUrl = server.allowed('/allowed/lecture');
+    await api((url) => window.studyNest.navigate(url), lectureUrl);
+    await ctx.waitFor(async () => (await ctx.contentUrl()) === lectureUrl, 10_000);
+    await sleep(500);
+    const inPage = (js) => ctx.app.evaluate(({ BrowserWindow }, code) => BrowserWindow.getAllWindows()[0].getBrowserView().webContents.executeJavaScript(code, true), js);
+    const layout = () =>
+      inPage(`JSON.stringify({
+        recommendations: getComputedStyle(document.getElementById('recommendations')).display,
+        preview: getComputedStyle(document.querySelector('.hover-preview')).display,
+        article: getComputedStyle(document.getElementById('article')).display,
+        note: getComputedStyle(document.getElementById('article'), '::before').content
+      })`).then(JSON.parse);
+    let view = await layout();
+    results.check('without Study Mode, pages are untouched', view.recommendations !== 'none' && view.preview !== 'none' && view.note === 'none', JSON.stringify(view));
+    await api(() => window.studyNest.startStudySession(null));
+    view = await ctx.waitFor(async () => {
+      const current = await layout();
+      return current.recommendations === 'none' ? current : null;
+    }, 5000);
+    results.check('starting Study Mode hides recommendations and hover previews on an open page', view?.recommendations === 'none' && view?.preview === 'none', JSON.stringify(view));
+    results.check('study content stays visible, with a focus notice', view?.article !== 'none' && String(view?.note).includes('Focus view is on'), JSON.stringify(view));
+    await ctx.shot('focus-view');
+    await api(() => window.studyNest.refresh());
+    await ctx.waitFor(async () => (await ctx.activeTab()).isLoading === false, 5000);
+    await sleep(300);
+    view = await layout();
+    results.check('focus view is applied again after a reload', view.recommendations === 'none', JSON.stringify(view));
+    const animated = await inPage(`JSON.stringify({ display: getComputedStyle(document.getElementById('animated')).display, loaded: document.getElementById('animated').naturalWidth > 0 })`).then(JSON.parse);
+    results.check('animated hover thumbnails are hidden and never downloaded during Study Mode', animated.display === 'none' && animated.loaded === false, JSON.stringify(animated));
+    await api(() => window.studyNest.stopStudySession());
+    view = await ctx.waitFor(async () => {
+      const current = await layout();
+      return current.recommendations !== 'none' ? current : null;
+    }, 5000);
+    results.check('ending Study Mode restores the page', Boolean(view) && view.preview !== 'none' && view.note === 'none', JSON.stringify(view));
     await api((url) => window.studyNest.navigate(url), secondUrl);
     await ctx.waitFor(async () => (await ctx.contentUrl()) === secondUrl, 10_000);
 

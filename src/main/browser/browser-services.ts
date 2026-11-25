@@ -89,6 +89,8 @@ export function setupBrowserServices(options: {
   manager: TabManager;
   sendCommand: (command: BrowserCommand) => void;
   isStudyActive: () => boolean;
+  /** Requests Study Mode refuses (focus rules); checked before the ad blocker. */
+  studyBlocksRequest?: (requestUrl: string, pageUrl: string | null) => boolean;
   log: Log;
 }): BrowserServices {
   const { window, manager, sendCommand, log } = options;
@@ -309,11 +311,18 @@ export function setupBrowserServices(options: {
     session: session.defaultSession,
     cacheFile: path.join(userData, 'adblock-engine.bin'),
     fetchImpl: (url) => net.fetch(url),
-    isActiveFor: (pageUrl) => adBlockingActiveFor(settings.get(), hostOf(pageUrl)),
+    // Ads are always blocked during Study Mode, even where the user allowed them.
+    isActiveFor: (pageUrl) => options.isStudyActive() || adBlockingActiveFor(settings.get(), hostOf(pageUrl)),
     isChrome: (id) => !window.isDestroyed() && window.webContents.id === id,
     log
   });
-  manager.setSubresourceFilter(adBlocker.filter);
+  manager.setSubresourceFilter((details, pageUrl, callback) => {
+    if (options.studyBlocksRequest?.(details.url, pageUrl)) {
+      callback({ cancel: true });
+      return;
+    }
+    adBlocker.filter(details, pageUrl, callback);
+  });
   adBlocker.onChange((state) => send(IPC_CHANNELS.ADBLOCK_CHANGED, state));
   handleTrusted(IPC_CHANNELS.ADBLOCK_STATE_REQUEST, () => adBlocker.getState());
   // STUDYNEST_ADBLOCK=off turns the ad blocker off entirely (end-to-end tests run without downloaded lists).

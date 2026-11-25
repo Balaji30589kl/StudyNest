@@ -1,0 +1,33 @@
+{
+  "description": "Study Mode focus view: while Study Mode is on, elements matching \"hide\" are hidden on the listed sites, and requests starting with a \"blockRequests\" prefix (host/path) are refused. By default only what plays or sells without a click is removed (hover previews, animated thumbnails, ads); anything you click is checked by Study Mode anyway. Selectors only: anything with { } ; @ or comments is ignored. To also hide YouTube recommendations or comments, add for example \"ytd-watch-flexy #secondary\" or \"ytd-comments\".",
+  "rules": [
+    {
+      "hosts": [
+        "youtube.com"
+      ],
+      "hide": [
+        "ytd-video-preview",
+        "#video-preview",
+        "ytd-moving-thumbnail-renderer",
+        "#mouseover-overlay",
+        "img[src*=\"/an_webp/\"]",
+        ".ytp-ad-player-overlay-layout",
+        ".ytp-ad-overlay-container",
+        ".ytp-ad-image-overlay",
+        ".ytp-ad-text-overlay",
+        "ytd-companion-slot-renderer",
+        "ytd-ad-slot-renderer",
+        "ytd-in-feed-ad-layout-renderer",
+        "#player-ads",
+        "#masthead-ad"
+      ],
+      "note": {
+        "text": "StudyNest focus view: hover previews and ads are off. Any video you open is checked first.",
+        "before": "ytd-watch-metadata"
+      },
+      "blockRequests": [
+        "i.ytimg.com/an_webp/"
+      ]
+    }
+  ]
+}

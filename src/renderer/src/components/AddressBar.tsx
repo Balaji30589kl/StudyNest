@@ -16,6 +16,8 @@ type Props = {
   inputRef: RefObject<HTMLInputElement | null>;
   onEditingChange: (editing: boolean) => void;
   onToggleBookmark: () => void;
+  /** During Study Mode ads are always blocked, whatever the per-site setting. */
+  studyActive: boolean;
 };
 
 /** "https://www.example.com/a" → host "example.com", rest "/a" (what the bar shows when idle). */
@@ -44,7 +46,7 @@ function hostOf(url: string): string | null {
   }
 }
 
-export function AddressBar({ activeTab, tabs, activeTabId, bookmarks, settings, inputRef, onEditingChange, onToggleBookmark }: Props) {
+export function AddressBar({ activeTab, tabs, activeTabId, bookmarks, settings, inputRef, onEditingChange, onToggleBookmark, studyActive }: Props) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [focused, setFocused] = useState(false);
   /** What the user typed; the input shows typed + completion with the completion selected. */
@@ -201,7 +203,7 @@ export function AddressBar({ activeTab, tabs, activeTabId, bookmarks, settings, 
 
   const isWeb = host !== null && !internalPage;
   const bookmarked = bookmarks.some((bookmark) => bookmark.url === pageUrl);
-  const adBlockActive = adBlockingActiveFor(settings, host);
+  const adBlockActive = studyActive || adBlockingActiveFor(settings, host);
   const display = !editing && !focused ? splitForDisplay(pageUrl) : null;
 
   const toggleAdBlockForSite = async () => {
@@ -275,17 +277,19 @@ export function AddressBar({ activeTab, tabs, activeTabId, bookmarks, settings, 
         </button>
       ) : null}
 
-      {!focused && isWeb && settings.adBlocking && !activeTab?.blocked ? (
+      {!focused && isWeb && (settings.adBlocking || studyActive) && !activeTab?.blocked ? (
         <button
           type="button"
           className={adBlockActive ? 'address-chip shield' : 'address-chip shield off'}
           title={
-            adBlockActive
+            studyActive
+              ? `${activeTab?.blockedAds ?? 0} ads and trackers blocked on this page. Ads are always blocked during Study Mode.`
+              : adBlockActive
               ? `${activeTab?.blockedAds ?? 0} ads and trackers blocked on this page. Click to allow ads on ${host?.replace(/^www\./, '')}.`
               : `Ad blocking is off on ${host?.replace(/^www\./, '')}. Click to turn it back on.`
           }
           aria-label={adBlockActive ? 'Ad blocking on for this site' : 'Ad blocking off for this site'}
-          onClick={() => void toggleAdBlockForSite()}
+          onClick={() => !studyActive && void toggleAdBlockForSite()}
         >
           {adBlockActive ? <ShieldCheck size={15} strokeWidth={2} /> : <ShieldOff size={15} strokeWidth={2} />}
           {adBlockActive && (activeTab?.blockedAds ?? 0) > 0 ? <span>{activeTab!.blockedAds}</span> : null}

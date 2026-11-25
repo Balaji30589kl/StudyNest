@@ -16,7 +16,8 @@ import {
 const policy: StudyPolicy = {
   block: ['reddit.com', 'youtube.com/shorts', 'youtube.com/feed/trending'],
   allow: ['wikipedia.org', 'youtube.com/results', 'old.reddit.com/r/learnprogramming'],
-  classification: { ...DEFAULT_CLASSIFICATION_POLICY, perPageHosts: ['youtube.com', 'youtu.be'] }
+  classification: { ...DEFAULT_CLASSIFICATION_POLICY, perPageHosts: ['youtube.com', 'youtu.be'] },
+  focus: []
 };
 const on = { studyActive: true, policy };
 
