@@ -157,7 +157,7 @@ describe('Claude classifier', () => {
 describe('provider selection', () => {
   it('defaults to Claude, picks Gemini when it is the only key, and honours LLM_PROVIDER', () => {
     expect(readConfig({ ANTHROPIC_API_KEY: 'a' })).toMatchObject({ provider: 'claude', apiKey: 'a', model: 'claude-haiku-5-5' });
-    expect(readConfig({ GEMINI_API_KEY: 'g' })).toMatchObject({ provider: 'gemini', apiKey: 'g', model: 'gemini-flash-lite-latest', fallbackModels: ['gemini-3.1-flash-lite'] });
+    expect(readConfig({ GEMINI_API_KEY: 'g' })).toMatchObject({ provider: 'gemini', apiKey: 'g', model: 'gemini-flash-lite-latest', fallbackModels: ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'] });
     expect(readConfig({ GEMINI_API_KEY: 'g', GEMINI_FALLBACK_MODELS: ' a , b ,' }).fallbackModels).toEqual(['a', 'b']);
     expect(readConfig({ GEMINI_API_KEY: 'g', GEMINI_FALLBACK_MODELS: '' }).fallbackModels).toEqual([]);
     expect(readConfig({ ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: 'g', LLM_PROVIDER: 'Gemini', GEMINI_MODEL: 'gemini-x' })).toMatchObject({
@@ -231,11 +231,29 @@ describe('Gemini classifier', () => {
     expect(badKey).toHaveBeenCalledTimes(1);
   });
 
-  it('rethrows aborts so the server can answer with a timeout', async () => {
+  it('gives a stalled model a time slice, then answers with the next model', async () => {
+    const fetchImpl = vi.fn((url: string, init: RequestInit) => {
+      if (url.includes('/models/slow:')) {
+        // Never answers until aborted, like a stalled Gemini request.
+        return new Promise<Response>((_resolve, reject) =>
+          init.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })))
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify(answer('{"category":"study","confidence":0.95,"rationale":"Lecture."}'))));
+    });
+    const classify = createGeminiClassifier({ apiKey: 'k', models: ['slow', 'fast'], hedgeAfterMs: 30, fetchImpl: fetchImpl as unknown as typeof fetch });
+    await expect(classify(metadata, new AbortController().signal)).resolves.toMatchObject({ category: 'study' });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('rethrows an abort from the caller so the server can answer with a timeout', async () => {
+    const controller = new AbortController();
     const aborting = vi.fn(async () => {
+      controller.abort();
       throw Object.assign(new Error('aborted'), { name: 'AbortError' });
     }) as unknown as typeof fetch;
     const classify = createGeminiClassifier({ apiKey: 'k', models: ['m', 'n'], fetchImpl: aborting });
-    await expect(classify(metadata, new AbortController().signal)).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(classify(metadata, controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+    expect(aborting).toHaveBeenCalledTimes(1);
   });
 });

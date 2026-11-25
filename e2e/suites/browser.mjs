@@ -7,7 +7,9 @@ import { launchApp, OUTPUT_DIR, sleep, startServer } from '../harness.mjs';
 async function press(ctx, target, keyCode, modifiers = []) {
   await ctx.app.evaluate(({ BrowserWindow }, args) => {
     const win = BrowserWindow.getAllWindows()[0];
-    const contents = args.target === 'page' ? win.getBrowserView().webContents : win.webContents;
+    // Built-in pages (the new tab page) are drawn by the browser window itself.
+    const view = win.getBrowserView();
+    const contents = args.target === 'page' && view ? view.webContents : win.webContents;
     contents.focus();
     contents.sendInputEvent({ type: 'keyDown', keyCode: args.keyCode, modifiers: args.modifiers });
     contents.sendInputEvent({ type: 'keyUp', keyCode: args.keyCode, modifiers: args.modifiers });

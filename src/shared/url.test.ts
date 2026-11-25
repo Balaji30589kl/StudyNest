@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildSearchUrl, classifyNavigationInput, displayUrl, isSafeNavigationUrl, normalizeNavigationInput } from './url.js';
-import { LANDING_PAGE_URL } from './landing-page.js';
+import { NEW_TAB_URL } from './internal-pages.js';
+import { buildSearchUrl, classifyNavigationInput, displayUrl, extractSearchQueryFromUrl, hostLabel, isSafeNavigationUrl, normalizeNavigationInput } from './url.js';
 
 describe('navigation url helpers', () => {
   it('adds https to bare hostnames', () => {
@@ -16,23 +16,41 @@ describe('navigation url helpers', () => {
     expect(normalizeNavigationInput('youtube')).toBe(buildSearchUrl('youtube'));
   });
 
+  it('searches with the chosen engine', () => {
+    expect(normalizeNavigationInput('machine learning basics')).toContain('duckduckgo.com/?q=machine%20learning%20basics');
+    expect(normalizeNavigationInput('machine learning', 'google')).toBe('https://www.google.com/search?q=machine%20learning');
+    expect(normalizeNavigationInput('cats', 'bing')).toBe('https://www.bing.com/search?q=cats');
+  });
+
+  it('recognises results pages of every engine', () => {
+    expect(extractSearchQueryFromUrl('https://www.google.com/search?q=linear+algebra&hl=en')).toBe('linear algebra');
+    expect(extractSearchQueryFromUrl('https://duckduckgo.com/?q=youtube')).toBe('youtube');
+    expect(extractSearchQueryFromUrl('https://search.brave.com/search?q=x')).toBe('x');
+    expect(extractSearchQueryFromUrl('https://www.google.com/maps?q=x')).toBeNull();
+  });
+
+  it('keeps internal pages and opens a new tab page for empty input', () => {
+    expect(normalizeNavigationInput('studynest://history')).toBe('studynest://history');
+    expect(normalizeNavigationInput('StudyNest://Settings#privacy')).toBe('studynest://Settings#privacy');
+    expect(classifyNavigationInput('studynest://bookmarks')).toBe('url');
+    expect(normalizeNavigationInput('  ')).toBe(NEW_TAB_URL);
+    expect(isSafeNavigationUrl('studynest://settings')).toBe(true);
+  });
+
   it('rejects unsafe protocols', () => {
     expect(isSafeNavigationUrl('javascript:alert(1)')).toBe(false);
+    expect(isSafeNavigationUrl('file:///C:/Windows')).toBe(false);
   });
 
-  it('shows a readable label for blank tabs', () => {
-    expect(displayUrl('about:blank')).toBe('New tab');
+  it('shows an empty address bar on new tabs and the bare address for internal pages', () => {
+    expect(displayUrl('about:blank')).toBe('');
+    expect(displayUrl(NEW_TAB_URL)).toBe('');
+    expect(displayUrl('studynest://settings#privacy')).toBe('studynest://settings');
+    expect(displayUrl('https://example.com/a?b=1')).toBe('https://example.com/a?b=1');
   });
 
-  it('shows a readable label for the StudyNest landing page', () => {
-    expect(displayUrl(LANDING_PAGE_URL)).toBe('StudyNest Start');
-  });
-
-  it('shows the search query instead of the raw search url', () => {
-    expect(displayUrl(buildSearchUrl('youtube'))).toBe('youtube');
-  });
-
-  it('falls back to search for plain text input', () => {
-    expect(normalizeNavigationInput('machine learning basics')).toContain('duckduckgo.com/?q=machine%20learning%20basics');
+  it('labels hosts without www', () => {
+    expect(hostLabel('https://www.youtube.com/watch?v=1')).toBe('youtube.com');
+    expect(hostLabel('studynest://history')).toBe('studynest://history');
   });
 });

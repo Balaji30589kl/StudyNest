@@ -7,9 +7,12 @@ import type { ClassificationProvider } from './provider.js';
 
 export const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** Fallback answers are retried sooner so the real classifier gets another chance. */
-export const FALLBACK_CACHE_TTL_MS = 30 * 60 * 1000;
+export const FALLBACK_CACHE_TTL_MS = 2 * 60 * 1000;
+/** Offline guesses that could not identify the page are retried on the next visit or reload. */
+export const UNCLEAR_FALLBACK_TTL_MS = 15 * 1000;
 export const MAX_CACHE_ENTRIES = 2000;
-const DEFAULT_TIMEOUT_MS = 6000;
+/** A little longer than the gateway's own budget (9 s), so its answer is never thrown away. */
+const DEFAULT_TIMEOUT_MS = 10_000;
 const RECENT_LIMIT = 12;
 
 export type PersistedAiData = { version: number; cache: Classification[] };
@@ -208,7 +211,7 @@ export class ClassificationClient {
   private getFresh(key: string): Classification | null {
     const entry = this.cache.get(key);
     if (!entry) return null;
-    const ttl = entry.fallback ? FALLBACK_CACHE_TTL_MS : CACHE_TTL_MS;
+    const ttl = !entry.fallback ? CACHE_TTL_MS : entry.category === 'other' ? UNCLEAR_FALLBACK_TTL_MS : FALLBACK_CACHE_TTL_MS;
     if (this.now() - entry.classifiedAt > ttl) {
       this.cache.delete(key);
       return null;

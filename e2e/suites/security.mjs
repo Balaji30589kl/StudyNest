@@ -79,11 +79,10 @@ export default async function security(results) {
     const cleared = await api(() => window.studyNest.resetSitePermissions());
     results.check('Reset all clears saved decisions', cleared.length === 0);
 
-    await page.click('button:has-text("Settings")');
-    await page.waitForSelector('[aria-label="Site permissions"]');
+    await ctx.openInternalPage('studynest://settings#permissions', '[aria-label="Site permissions"]');
     await sleep(400);
     await ctx.shot('settings-permissions');
-    await page.click('button:has-text("Settings")');
+    await api((tabId) => window.studyNest.closeTab(tabId), (await ctx.activeTab()).id);
 
     // Error pages.
     // A port that was just freed: connection refused (port 1 would hit Chromium's unsafe-port block instead).

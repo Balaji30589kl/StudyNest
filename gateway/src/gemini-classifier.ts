@@ -48,11 +48,24 @@ class ModelError extends Error {
 
 /**
  * Classifies a page with Google Gemini through its REST API, using the same
- * prompt and JSON schema as the Claude classifier. Gemini models are often
- * briefly overloaded (HTTP 503), so an overloaded, rate-limited or retired
- * model falls through to the next one in `models`.
+ * prompt and JSON schema as the Claude classifier.
+ *
+ * Gemini models (especially on the free tier) sometimes answer 503/429 and
+ * sometimes stall for 30 s or more. Requests are therefore hedged: the first
+ * model starts at once; if it has not answered after `hedgeAfterMs`, or fails
+ * with an overload, rate limit or retired model, the next model starts too.
+ * The first valid answer wins and the other requests are cancelled.
  */
-export function createGeminiClassifier(options: { apiKey: string; models: string[]; fetchImpl?: typeof fetch; baseUrl?: string }): Classifier {
+/** How long a model may think before the next model is started alongside it. */
+export const DEFAULT_HEDGE_AFTER_MS = 2500;
+
+export function createGeminiClassifier(options: {
+  apiKey: string;
+  models: string[];
+  fetchImpl?: typeof fetch;
+  baseUrl?: string;
+  hedgeAfterMs?: number;
+}): Classifier {
   const doFetch = options.fetchImpl ?? fetch;
   const base = (options.baseUrl ?? GEMINI_API_BASE).replace(/\/+$/, '');
   const models = options.models.length > 0 ? options.models : ['gemini-flash-lite-latest'];
@@ -109,17 +122,68 @@ export function createGeminiClassifier(options: { apiKey: string; models: string
     return prediction;
   }
 
-  return async (metadata, signal) => {
-    let last: ClassifierError | null = null;
-    for (const model of models) {
-      try {
-        return await classifyWith(model, metadata, signal);
-      } catch (error) {
-        if (!(error instanceof ModelError)) throw error;
-        last = error.failure;
-        if (signal.aborted || !shouldTryNextModel(error.failure, error.status)) break;
+  const hedgeAfterMs = options.hedgeAfterMs ?? DEFAULT_HEDGE_AFTER_MS;
+
+  return (metadata, signal) =>
+    new Promise<ProviderPrediction>((resolve, reject) => {
+      const running: AbortController[] = [];
+      let nextModel = 0;
+      let pending = 0;
+      let settled = false;
+      let last: ClassifierError | null = null;
+      let hedgeTimer: ReturnType<typeof setTimeout> | null = null;
+
+      const finish = (settle: () => void) => {
+        if (settled) return;
+        settled = true;
+        if (hedgeTimer) clearTimeout(hedgeTimer);
+        signal.removeEventListener('abort', onCallerAbort);
+        for (const controller of running) controller.abort();
+        settle();
+      };
+      // The caller's own timeout ends everything; the server answers with a timeout.
+      const onCallerAbort = () => finish(() => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+      if (signal.aborted) {
+        onCallerAbort();
+        return;
       }
-    }
-    throw last ?? new ClassifierError('No Gemini model is configured.', false);
-  };
+      signal.addEventListener('abort', onCallerAbort, { once: true });
+
+      /** Starts the next model; false when every model has been started. */
+      const startNext = (): boolean => {
+        if (settled || nextModel >= models.length) return false;
+        const model = models[nextModel++]!;
+        const controller = new AbortController();
+        running.push(controller);
+        pending += 1;
+        if (hedgeTimer) clearTimeout(hedgeTimer);
+        hedgeTimer = setTimeout(startNext, hedgeAfterMs);
+        classifyWith(model, metadata, controller.signal).then(
+          (prediction) => finish(() => resolve(prediction)),
+          (error: unknown) => {
+            pending -= 1;
+            if (settled) return;
+            if (error instanceof ModelError) {
+              last = error.failure;
+              if (!shouldTryNextModel(error.failure, error.status)) {
+                finish(() => reject(error.failure));
+                return;
+              }
+            } else if (error instanceof Error && error.name === 'AbortError') {
+              last = new ClassifierError('The LLM provider took too long.', true);
+            } else {
+              // Declined, truncated or malformed answers are not a capacity problem.
+              finish(() => reject(error));
+              return;
+            }
+            if (!startNext() && pending === 0) {
+              finish(() => reject(last ?? new ClassifierError('No Gemini model is configured.', false)));
+            }
+          }
+        );
+        return true;
+      };
+
+      startNext();
+    });
 }

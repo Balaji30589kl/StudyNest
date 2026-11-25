@@ -10,7 +10,11 @@ const LEXICON: Lexicon = {
     'university', 'college', 'research', 'paper', 'theorem', 'algorithm', 'practice problems', 'quiz', 'textbook',
     'study', 'notes', 'curriculum', 'mooc', 'calculus', 'physics', 'chemistry', 'biology', 'programming',
     'data structures', 'leetcode', 'khan academy', 'arxiv', 'education', 'educational', 'science & technology', 'howto',
-    'explained', 'course lecture', 'tutorial for beginners', 'crash course'
+    'explained', 'course lecture', 'tutorial for beginners', 'crash course', 'full course', 'one shot', 'in one shot',
+    'java', 'python', 'javascript', 'c++', 'dsa', 'sql', 'machine learning', 'react js', 'web development', 'coding',
+    'mathematics', 'maths', 'math', 'algebra', 'geometry', 'statistics', 'economics', 'accountancy', 'history notes',
+    'jee', 'neet', 'upsc', 'gate exam', 'ncert', 'cbse', 'class 10', 'class 11', 'class 12', 'board exam', 'revision',
+    'physics wallah', 'unacademy', 'nptel', 'mit opencourseware', 'freecodecamp', 'lecture series', 'chapter'
   ],
   reference: [
     'wikipedia', 'encyclopedia', 'dictionary', 'definition', 'documentation', 'docs', 'reference', 'manual',
@@ -33,6 +37,12 @@ const LEXICON: Lexicon = {
   shopping: [
     'buy', 'cart', 'add to cart', 'price', 'shop', 'store', 'deal', 'deals', 'sale', 'discount', 'checkout',
     'order', 'free shipping', 'product', 'products', 'coupon'
+  ],
+  sports: [
+    'cricket', 'highlights', 'match highlights', 'innings', 'wickets', 'runs', 'ipl', 'odi', 't20', 'test match', 'asia cup',
+    'world cup', 'football', 'soccer', 'premier league', 'la liga', 'champions league', 'goals', 'nba', 'nfl', 'fifa',
+    'tennis', 'grand slam', 'formula 1', 'f1', 'motogp', 'wwe', 'ufc', 'boxing', 'live score', 'scorecard', 'sports',
+    'tournament', 'league'
   ],
   gaming: [
     'game', 'games', 'gaming', 'play now', 'multiplayer', 'esports', 'gamer', 'walkthrough', 'speedrun', 'twitch',

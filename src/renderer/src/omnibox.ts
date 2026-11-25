@@ -1,174 +1,160 @@
-import { BrowserTabState } from '../../shared/ipc.js';
-import { classifyNavigationInput, displayUrl, normalizeNavigationInput } from '../../shared/url.js';
+import type { Bookmark, BrowserTabState, HistorySuggestion } from '../../shared/ipc.js';
+import { isInternalUrl } from '../../shared/internal-pages.js';
+import { buildSearchUrl, classifyNavigationInput, displayUrl, normalizeNavigationInput } from '../../shared/url.js';
+import type { SearchEngineId } from '../../shared/search-engines.js';
 
-export type OmniboxSuggestionKind = 'search' | 'url' | 'tab' | 'history' | 'remote-search';
+export type OmniboxSuggestionKind = 'search' | 'url' | 'tab' | 'bookmark' | 'history' | 'suggestion';
 
 export type OmniboxSuggestion = {
   id: string;
   kind: OmniboxSuggestionKind;
-  label: string;
+  /** Main line: a page title or the search text. */
+  title: string;
+  /** Second line: the address, or what Enter will do. */
   detail: string;
-  value: string;
+  /** Where Enter goes: a URL (navigate), or the tab to switch to for kind 'tab'. */
+  url: string;
+  tabId?: string;
+  favicon?: string | null;
 };
 
-const MAX_SUGGESTIONS = 6;
-const REMOTE_SUGGESTION_LIMIT = 4;
-const TAB_SUGGESTION_LIMIT = 3;
-const HISTORY_SUGGESTION_LIMIT = 3;
+export type OmniboxSources = {
+  tabs: BrowserTabState[];
+  activeTabId: string | null;
+  bookmarks: Bookmark[];
+  history: HistorySuggestion[];
+  remote: string[];
+  engine: SearchEngineId;
+  engineName: string;
+};
 
-function normalizeText(value: string): string {
-  return value.trim().toLowerCase();
+const MAX_SUGGESTIONS = 8;
+const LIMITS = { tab: 2, bookmark: 3, history: 4, suggestion: 4 } as const;
+
+function tokens(value: string): string[] {
+  return value.toLowerCase().split(/\s+/).filter(Boolean);
 }
 
-function isMatch(value: string, query: string): boolean {
-  const normalizedValue = normalizeText(value);
-  const normalizedQuery = normalizeText(query);
+function matches(haystack: string, query: string): boolean {
+  const text = haystack.toLowerCase();
+  return tokens(query).every((token) => text.includes(token));
+}
 
-  if (normalizedQuery.length === 0) {
-    return true;
+function bareHost(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
   }
-
-  return normalizedValue.includes(normalizedQuery);
 }
 
-function pushSuggestion(suggestions: OmniboxSuggestion[], suggestion: OmniboxSuggestion): void {
-  if (suggestions.some((existing) => existing.value === suggestion.value && existing.kind === suggestion.kind)) {
-    return;
+/** The address without "https://", "www." and a trailing slash, as people type it. */
+export function typedForm(url: string): string {
+  return url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '');
+}
+
+/**
+ * Inline autocompletion: when the typed text starts a known site's address,
+ * the rest of that address ("you" → "tube.com"). Only for single words.
+ */
+export function inlineCompletion(input: string, candidates: string[]): string | null {
+  const typed = input.trim().toLowerCase();
+  if (typed.length === 0 || /\s/.test(typed) || /^https?:\/\//.test(typed)) {
+    return null;
   }
-
-  suggestions.push(suggestion);
+  for (const url of candidates) {
+    const form = typedForm(url);
+    // Complete host names (and short paths after them), never into the middle of a word.
+    if (form.toLowerCase().startsWith(typed) && form.length > typed.length) {
+      const host = bareHost(url);
+      const completion = typed.length < host.length ? host : form;
+      if (completion.toLowerCase().startsWith(typed)) {
+        return completion.slice(typed.length);
+      }
+    }
+  }
+  return null;
 }
 
-function createSearchSuggestion(query: string): OmniboxSuggestion {
-  return {
-    id: `search:${query}`,
-    kind: 'search',
-    label: `Search "${query}"`,
-    detail: 'DuckDuckGo results',
-    value: query
-  };
-}
-
-function createUrlSuggestion(input: string): OmniboxSuggestion {
-  const normalizedUrl = normalizeNavigationInput(input);
-  return {
-    id: `url:${normalizedUrl}`,
-    kind: 'url',
-    label: `Go to ${displayUrl(normalizedUrl)}`,
-    detail: 'Open this page',
-    value: normalizedUrl
-  };
-}
-
-function createTabSuggestion(tab: BrowserTabState): OmniboxSuggestion {
-  return {
-    id: `tab:${tab.id}`,
-    kind: 'tab',
-    label: tab.title,
-    detail: displayUrl(tab.url),
-    value: tab.url
-  };
-}
-
-function createHistorySuggestion(entry: string): OmniboxSuggestion {
-  const normalized = normalizeNavigationInput(entry);
-
-  return {
-    id: `history:${entry}`,
-    kind: 'history',
-    label: entry,
-    detail: displayUrl(normalized),
-    value: entry
-  };
-}
-
-function createRemoteSuggestion(value: string): OmniboxSuggestion {
-  return {
-    id: `remote:${value}`,
-    kind: 'remote-search',
-    label: value,
-    detail: 'Search suggestion',
-    value
-  };
-}
-
-export async function fetchDuckDuckGoSuggestions(query: string, signal?: AbortSignal): Promise<string[]> {
+export async function fetchSearchSuggestions(query: string, signal?: AbortSignal): Promise<string[]> {
   const trimmed = query.trim();
-
-  if (trimmed.length < 2) {
+  if (trimmed.length < 2 || classifyNavigationInput(trimmed) === 'url') {
     return [];
   }
-
   const response = await fetch(`https://duckduckgo.com/ac/?q=${encodeURIComponent(trimmed)}&type=list`, {
     method: 'GET',
     signal,
-    headers: {
-      Accept: 'application/json'
-    }
+    headers: { Accept: 'application/json' }
   });
-
   if (!response.ok) {
     return [];
   }
-
-  const payload = (await response.json()) as Array<{ phrase?: string }>;
-  return payload
-    .map((entry) => entry.phrase?.trim())
-    .filter((phrase): phrase is string => typeof phrase === 'string' && phrase.length > 0)
-    .slice(0, REMOTE_SUGGESTION_LIMIT);
+  const payload = (await response.json()) as unknown;
+  // DuckDuckGo answers either [{phrase}] or ["query", ["s1", "s2"]].
+  const phrases = Array.isArray(payload)
+    ? Array.isArray(payload[1])
+      ? (payload[1] as unknown[])
+      : payload.map((entry) => (typeof entry === 'object' && entry !== null ? (entry as { phrase?: unknown }).phrase : entry))
+    : [];
+  return phrases
+    .filter((phrase): phrase is string => typeof phrase === 'string' && phrase.trim().length > 0)
+    .map((phrase) => phrase.trim())
+    .filter((phrase) => phrase.toLowerCase() !== trimmed.toLowerCase())
+    .slice(0, LIMITS.suggestion);
 }
 
-export function buildOmniboxSuggestions(
-  input: string,
-  tabs: BrowserTabState[],
-  recentEntries: string[],
-  remoteSuggestions: string[]
-): OmniboxSuggestion[] {
+/** Builds the dropdown: what you typed first, then open tabs, bookmarks, history and search suggestions. */
+export function buildOmniboxSuggestions(input: string, sources: OmniboxSources): OmniboxSuggestion[] {
   const trimmed = input.trim();
-  const suggestions: OmniboxSuggestion[] = [];
-
-  if (trimmed.length > 0) {
-    const classification = classifyNavigationInput(trimmed);
-    if (classification === 'search') {
-      pushSuggestion(suggestions, createSearchSuggestion(trimmed));
-    } else {
-      pushSuggestion(suggestions, createUrlSuggestion(trimmed));
-    }
+  if (trimmed.length === 0) {
+    return [];
   }
 
-  const query = normalizeText(trimmed);
-  const matchingTabs = tabs.filter((tab) => isMatch(tab.title, query) || isMatch(tab.url, query)).slice(0, TAB_SUGGESTION_LIMIT);
-  for (const tab of matchingTabs) {
-    pushSuggestion(suggestions, createTabSuggestion(tab));
+  const result: OmniboxSuggestion[] = [];
+  const seenUrls = new Set<string>();
+  const push = (suggestion: OmniboxSuggestion) => {
+    const key = suggestion.kind === 'tab' ? `tab:${suggestion.tabId}` : suggestion.url;
+    if (seenUrls.has(key) || result.length >= MAX_SUGGESTIONS) return;
+    seenUrls.add(key);
+    if (suggestion.kind !== 'tab') seenUrls.add(suggestion.url);
+    result.push(suggestion);
+  };
+
+  const search: OmniboxSuggestion = {
+    id: `search:${trimmed}`,
+    kind: 'search',
+    title: trimmed,
+    detail: `Search ${sources.engineName}`,
+    url: buildSearchUrl(trimmed, sources.engine)
+  };
+
+  if (classifyNavigationInput(trimmed) === 'url') {
+    const url = normalizeNavigationInput(trimmed, sources.engine);
+    push({ id: `url:${url}`, kind: 'url', title: isInternalUrl(url) ? url : typedForm(url), detail: 'Open this address', url });
+    push(search);
+  } else {
+    push(search);
   }
 
-  const matchingHistory = recentEntries.filter((entry) => isMatch(entry, query)).slice(0, HISTORY_SUGGESTION_LIMIT);
-  for (const entry of matchingHistory) {
-    pushSuggestion(suggestions, createHistorySuggestion(entry));
-  }
+  sources.tabs
+    .filter((tab) => tab.id !== sources.activeTabId && !isInternalUrl(tab.url) && matches(`${tab.title} ${tab.url}`, trimmed))
+    .slice(0, LIMITS.tab)
+    .forEach((tab) =>
+      push({ id: `tab:${tab.id}`, kind: 'tab', title: tab.title, detail: `Switch to this tab · ${typedForm(displayUrl(tab.url))}`, url: tab.url, tabId: tab.id, favicon: tab.favicon })
+    );
 
-  for (const suggestion of remoteSuggestions.slice(0, REMOTE_SUGGESTION_LIMIT)) {
-    pushSuggestion(suggestions, createRemoteSuggestion(suggestion));
-  }
+  sources.bookmarks
+    .filter((bookmark) => matches(`${bookmark.title} ${bookmark.url}`, trimmed))
+    .slice(0, LIMITS.bookmark)
+    .forEach((bookmark) => push({ id: `bookmark:${bookmark.id}`, kind: 'bookmark', title: bookmark.title, detail: typedForm(bookmark.url), url: bookmark.url }));
 
-  return suggestions.slice(0, MAX_SUGGESTIONS);
-}
+  sources.history
+    .slice(0, LIMITS.history + 2)
+    .forEach((entry) => push({ id: `history:${entry.url}`, kind: 'history', title: entry.title || typedForm(entry.url), detail: typedForm(entry.url), url: entry.url }));
 
-export function toSearchSubmissionValue(suggestion: OmniboxSuggestion): string {
-  if (suggestion.kind === 'search' || suggestion.kind === 'remote-search' || suggestion.kind === 'history') {
-    return suggestion.value;
-  }
+  sources.remote.slice(0, LIMITS.suggestion).forEach((phrase) =>
+    push({ id: `suggestion:${phrase}`, kind: 'suggestion', title: phrase, detail: `Search ${sources.engineName}`, url: buildSearchUrl(phrase, sources.engine) })
+  );
 
-  return normalizeNavigationInput(suggestion.value);
-}
-
-export function createRecentEntryList(existingEntries: string[], value: string, limit = 8): string[] {
-  const normalizedValue = value.trim();
-
-  if (normalizedValue.length === 0) {
-    return existingEntries;
-  }
-
-  const filtered = existingEntries.filter((entry) => normalizeText(entry) !== normalizeText(normalizedValue));
-  return [normalizedValue, ...filtered].slice(0, limit);
+  return result;
 }

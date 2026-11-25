@@ -11,7 +11,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "node scripts/dev.mjs",
+    "dev:app": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
@@ -23,6 +24,7 @@
     "gateway:start": "node gateway/dist/gateway/src/main.js"
   },
   "dependencies": {
+    "@ghostery/adblocker-electron": "2.20.3",
     "electron-updater": "^6.3.9"
   },
   "devDependencies": {
@@ -34,6 +36,7 @@
     "electron": "^31.3.1",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
+    "lucide-react": "1.70.0",
     "playwright-core": "^1.48.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

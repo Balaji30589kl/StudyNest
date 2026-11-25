@@ -84,6 +84,16 @@ describe('evaluateStudyPolicy', () => {
     expect(unsure.action).toBe('allow');
   });
 
+  it('blocks sports and keeps unidentified videos blocked, but not unidentified websites', () => {
+    expect(evaluateStudyPolicy('https://www.youtube.com/watch?v=d', { ...on, classification: prediction('sports') }).action).toBe('block');
+    const unclear = evaluateStudyPolicy('https://www.youtube.com/watch?v=e', { ...on, classification: prediction('other', 0.3) });
+    expect(unclear).toMatchObject({ action: 'block', reason: 'classified', classification: { category: 'other' } });
+    expect(evaluateStudyPolicy('https://www.youtube.com/watch?v=f', { ...on, classification: prediction('other', 0.8) }).action).toBe('allow');
+    expect(evaluateStudyPolicy('https://example.com/article', { ...on, classification: prediction('other', 0.3) }).action).toBe('allow');
+    const relaxed = { ...policy, classification: { ...policy.classification, blockUnclearPerPage: false } };
+    expect(evaluateStudyPolicy('https://www.youtube.com/watch?v=e', { studyActive: true, policy: relaxed, classification: prediction('other', 0.3) }).action).toBe('allow');
+  });
+
   it('never lets a prediction override a list rule', () => {
     expect(evaluateStudyPolicy('https://reddit.com', { ...on, classification: prediction('study') }).action).toBe('block');
     expect(evaluateStudyPolicy('https://wikipedia.org', { ...on, classification: prediction('entertainment') }).action).toBe('allow');

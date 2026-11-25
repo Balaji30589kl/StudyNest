@@ -123,6 +123,14 @@ describe('fetchPageMetadata', () => {
 });
 
 describe('rule-based fallback', () => {
+  it('recognises sports offline, e.g. cricket highlights', () => {
+    const base: PageMetadata = { url: 'u', host: 'youtube.com', key: 'k', genre: '', title: '', description: '', keywords: [], headings: [], siteName: 'YouTube', ogType: '', lang: 'en', textSample: '' };
+    for (const title of ['Pakistan vs Nepal Highlights | Shaheens Win by 96 Runs | Asia Cup Rising Stars 2026', "Highlights | Match 11 | India 'A' v UAE | DP World Men's Asia Cup Rising Stars 2026"]) {
+      expect(classifyByRules({ ...base, title, description: 'Video by Asian Cricket Council on YouTube.' }).category).toBe('sports');
+    }
+    expect(classifyByRules({ ...base, title: 'Dynamic programming tutorial for beginners', description: 'Video by freeCodeCamp.org on YouTube.' }).category).toBe('study');
+  });
+
   it('judges offline searches by their query', () => {
     const search = (query: string) => classifyByRules(sanitizePageMetadata(searchPageMetadata(`https://www.youtube.com/results?search_query=${query}`, 'youtube.com'), 'u', 'youtube.com'));
     expect(search('linear+algebra+lecture').category).toBe('study');

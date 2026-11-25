@@ -51,10 +51,9 @@ export default async function packaged(results) {
     results.check('Study Mode blocks in the packaged app', Boolean(await ctx.waitFor(async () => (await ctx.contentUrl()).startsWith('data:text/html'))));
     await api(() => window.studyNest.stopStudySession());
 
-    await page.click('button:has-text("Settings")');
-    await page.waitForSelector('[aria-label="Updates"]');
-    const overflow = await page.locator('.side-panel').evaluate((panel) => panel.scrollWidth - panel.clientWidth);
-    results.check('settings drawer content fits its width', overflow <= 1, `overflow ${overflow}px`);
+    await ctx.openInternalPage('studynest://settings#updates', '[aria-label="Updates"]');
+    const overflow = await page.locator('.internal-page').evaluate((panel) => panel.scrollWidth - panel.clientWidth);
+    results.check('settings page content fits its width', overflow <= 1, `overflow ${overflow}px`);
     await page.evaluate(() => document.querySelector('[aria-label="Updates"]').scrollIntoView());
     await ctx.shot('settings-updates');
     results.check('no renderer errors', ctx.pageErrors.length === 0, ctx.pageErrors.join(' | '));

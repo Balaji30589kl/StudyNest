@@ -88,7 +88,7 @@ export default async function ai(results) {
     results.check('AI status reports the gateway offline', aiState.gateway.status === 'offline', JSON.stringify(aiState.gateway));
 
     await api(() => window.studyNest.stopStudySession());
-    await page.click('button:has-text("Insights")');
+    await ctx.command({ type: 'open-panel', panel: 'insights' });
     await page.waitForSelector('[aria-label="Distractions"]');
     results.check('insights show AI and category breakdowns', (await page.locator('.category-bars li').count()) >= 2);
     await sleep(400);

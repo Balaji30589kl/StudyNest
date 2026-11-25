@@ -5,13 +5,22 @@ All notable changes to StudyNest. Versions follow semantic versioning while pre-
 ## Unreleased
 
 ### Added
+- **A new look and a complete everyday browser (Phase 7).** A compact two-row chrome with its own design (light, dark or follow Windows); tabs with site icons, pinning, muting, drag to reorder and a right-click menu; an address bar with inline autocomplete, grouped suggestions (tabs, bookmarks, history, search), a security indicator, zoom chip and bookmark star; bookmarks and a bookmarks bar; browsing history; find in page; session restore; right-click menus in pages; print; a choice of search engines; clear browsing data; "Make default browser"; and built-in pages for the new tab, history, bookmarks and settings. Details: `docs/phase-7-daily-browser.md`.
+- **Ad and tracker blocking** with the EasyList / uBlock Origin lists, on by default, with a per-site switch in the address bar.
+- Opening StudyNest again, or clicking a link in another app, opens a tab in the running window.
 - **Search box on blocked YouTube pages.** The YouTube homepage feed stays blocked during Study Mode, but its block page now offers a YouTube search.
 - **Gemini support in the AI gateway.** Set `LLM_PROVIDER=gemini` and `GEMINI_API_KEY`. When a Gemini model is overloaded or retired, the gateway tries the models in `GEMINI_FALLBACK_MODELS`.
 
 ### Changed
 - **YouTube searches are checked, not always allowed.** `youtube.com/results` is off the allow list. Each search is judged by its query ("linear algebra lecture" opens, "funny comedy videos" is blocked), including searches typed into YouTube's own search box.
+- Settings moved from a side drawer to a full page (`studynest://settings`). The block, checking and error pages use the new look.
 
 ### Fixed
+- **YouTube videos stayed black with the ad blocker on.** The filter lists' injected scripts broke YouTube's player, and their stand-in `data:` redirects crash Electron 31. Ads are now blocked by request and hidden with CSS only; scripts are never injected, and redirects become plain blocks.
+- **Sports videos were allowed in Study Mode.** There was no sports category, and when the AI gateway was unreachable, unidentified videos were let through. Added a "sports" category (distracting by default, also known to the offline rules), and videos the classifier can't identify now stay blocked (`blockUnclearPerPage` in `policy/classification.json`).
+- **AI checks often fell back to the offline rules.** Gemini (especially on the free tier) sometimes takes 5–30 s, while the app gave up after 6 s and kept the offline guess for 30 minutes. The gateway now races its models (the next one starts after 2.5 s or on an error), the app waits up to 10 s, unclear offline guesses are retried after 15 s, and the offline rules know common study terms (java, DSA, one shot, JEE, NEET, NCERT…).
+- `npm run dev` now also starts the AI gateway when `gateway/.env` has a key, and the Study chip shows a warning dot when AI checks are offline.
+- `.env.example` files were hidden by the `.env.*` ignore rule, so the gateway's setup template was missing from git.
 - A YouTube page was checked twice, with a reload, because YouTube adds `themeRefresh=1` to the address after loading. That parameter no longer counts as a different page.
 - **YouTube videos were judged from an empty page.** YouTube often answers the app's background metadata request with a 429 "unusual traffic" page, which was read as the video, so every video was judged by its URL alone. Error responses, bot checks and consent walls are now treated as refused, and YouTube and Vimeo titles and channels come from oEmbed instead.
 

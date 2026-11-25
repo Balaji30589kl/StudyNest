@@ -23,7 +23,8 @@ export type GatewayConfig = {
 export const DEFAULT_MODEL = 'claude-haiku-5-5';
 /** Fast, low-cost Gemini alias that tracks the current Flash-Lite model. */
 export const DEFAULT_GEMINI_MODEL = 'gemini-flash-lite-latest';
-export const DEFAULT_GEMINI_FALLBACK_MODELS = ['gemini-3.1-flash-lite'];
+/** Measured 2026-11-25: 3.5 Flash-Lite answered reliably; 3.1 Flash-Lite often stalls, so it comes last. */
+export const DEFAULT_GEMINI_FALLBACK_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
 
 function list(value: string | undefined): string[] | null {
   if (value === undefined) return null;
@@ -66,6 +67,6 @@ export function readConfig(env: Record<string, string | undefined> = process.env
     dailyCap: positiveInt(env.DAILY_REQUEST_CAP, 5000),
     clientToken: nonEmpty(env.CLIENT_TOKEN),
     policyDir: env.POLICY_DIR ? path.resolve(env.POLICY_DIR) : DEFAULT_POLICY_DIR,
-    classifyTimeoutMs: positiveInt(env.CLASSIFY_TIMEOUT_MS, 8000)
+    classifyTimeoutMs: positiveInt(env.CLASSIFY_TIMEOUT_MS, 9000)
   };
 }

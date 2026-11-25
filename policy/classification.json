@@ -1,7 +1,21 @@
 {
-  "description": "How pages that are on neither list are judged. Hosts in perPageHosts are judged page by page (each video separately); other sites are judged once per site.",
+  "description": "How pages that are on neither list are judged. Hosts in perPageHosts are judged page by page (each video separately); other sites are judged once per site. blockUnclearPerPage keeps videos the classifier could not identify blocked.",
   "enabled": true,
   "minConfidence": 0.6,
-  "distractingCategories": ["social", "entertainment", "shopping", "gaming"],
-  "perPageHosts": ["youtube.com", "youtu.be", "vimeo.com", "dailymotion.com", "medium.com", "quora.com"]
+  "distractingCategories": [
+    "social",
+    "entertainment",
+    "shopping",
+    "gaming",
+    "sports"
+  ],
+  "perPageHosts": [
+    "youtube.com",
+    "youtu.be",
+    "vimeo.com",
+    "dailymotion.com",
+    "medium.com",
+    "quora.com"
+  ],
+  "blockUnclearPerPage": true
 }

@@ -10,7 +10,7 @@ const CONTENT_SECURITY_POLICY = [
   "default-src 'none'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
+  "img-src 'self' data: https: http:",
   "font-src 'self' data:",
   'connect-src https://duckduckgo.com',
   "base-uri 'none'",

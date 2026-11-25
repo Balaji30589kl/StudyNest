@@ -31,6 +31,21 @@ describe('matchShortcut', () => {
     expect(matchShortcut(key('0', { control: true }))).toEqual({ type: 'zoom-reset' });
   });
 
+  it('maps find, history, bookmarks, downloads, print and developer tools', () => {
+    expect(matchShortcut(key('f', { control: true }))).toEqual({ type: 'find' });
+    expect(matchShortcut(key('h', { control: true }))).toEqual({ type: 'open-page', page: 'history' });
+    expect(matchShortcut(key('O', { control: true, shift: true }))).toEqual({ type: 'open-page', page: 'bookmarks' });
+    expect(matchShortcut(key(',', { control: true }))).toEqual({ type: 'open-page', page: 'settings' });
+    expect(matchShortcut(key('Delete', { control: true, shift: true }))).toEqual({ type: 'open-page', page: 'settings', section: 'privacy' });
+    expect(matchShortcut(key('j', { control: true }))).toEqual({ type: 'open-panel', panel: 'downloads' });
+    expect(matchShortcut(key('d', { control: true }))).toEqual({ type: 'bookmark-page' });
+    expect(matchShortcut(key('B', { control: true, shift: true }))).toEqual({ type: 'toggle-bookmarks-bar' });
+    expect(matchShortcut(key('p', { control: true }))).toEqual({ type: 'print' });
+    expect(matchShortcut(key('F12'))).toEqual({ type: 'devtools' });
+    expect(matchShortcut(key('I', { control: true, shift: true }))).toEqual({ type: 'devtools' });
+    expect(matchShortcut(key('Home', { alt: true }))).toEqual({ type: 'home' });
+  });
+
   it('ignores ordinary typing, key-up events, and AltGr combinations', () => {
     expect(matchShortcut(key('t'))).toBeNull();
     expect(matchShortcut(key('ArrowLeft'))).toBeNull();
@@ -43,6 +58,9 @@ describe('matchShortcut', () => {
   it('flags commands the renderer must handle', () => {
     expect(isRendererCommand({ type: 'new-tab' })).toBe(true);
     expect(isRendererCommand({ type: 'focus-address' })).toBe(true);
+    expect(isRendererCommand({ type: 'find' })).toBe(true);
+    expect(isRendererCommand({ type: 'open-panel', panel: 'downloads' })).toBe(true);
+    expect(isRendererCommand({ type: 'print' })).toBe(false);
     expect(isRendererCommand({ type: 'reload' })).toBe(false);
   });
 });

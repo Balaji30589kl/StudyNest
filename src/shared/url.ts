@@ -1,13 +1,12 @@
-import { isStudyNestLandingPageUrl } from './landing-page.js';
+import { internalPageOf, isInternalUrl, NEW_TAB_URL } from './internal-pages.js';
+import { DEFAULT_SEARCH_ENGINE, getSearchEngine, SEARCH_ENGINES, SearchEngineId } from './search-engines.js';
 
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:']);
-const SEARCH_BASE = 'https://duckduckgo.com/?q=';
-const SEARCH_HOSTS = new Set(['duckduckgo.com']);
 
 export type NavigationClassification = 'empty' | 'search' | 'url';
 
-export function buildSearchUrl(query: string): string {
-  return `${SEARCH_BASE}${encodeURIComponent(query.trim())}`;
+export function buildSearchUrl(query: string, engine: SearchEngineId = DEFAULT_SEARCH_ENGINE): string {
+  return `${getSearchEngine(engine).searchBase}${encodeURIComponent(query.trim())}`;
 }
 
 export function classifyNavigationInput(input: string): NavigationClassification {
@@ -17,7 +16,7 @@ export function classifyNavigationInput(input: string): NavigationClassification
     return 'empty';
   }
 
-  if (trimmed.startsWith('about:')) {
+  if (trimmed.startsWith('about:') || isInternalUrl(trimmed)) {
     return 'url';
   }
 
@@ -48,34 +47,39 @@ export function classifyNavigationInput(input: string): NavigationClassification
   }
 }
 
+/** The query of any supported search engine's results page, or null. */
 export function extractSearchQueryFromUrl(input: string): string | null {
   try {
     const parsed = new URL(input);
-
-    if (!SEARCH_HOSTS.has(parsed.hostname)) {
+    const host = parsed.hostname.replace(/^www\./, '');
+    const engine = SEARCH_ENGINES.find((candidate) => candidate.host === host && parsed.pathname === candidate.path);
+    if (!engine) {
       return null;
     }
-
-    const query = parsed.searchParams.get('q');
+    const query = parsed.searchParams.get(engine.param);
     return query ? query.trim() : null;
   } catch {
     return null;
   }
 }
 
-export function normalizeNavigationInput(input: string): string {
+export function normalizeNavigationInput(input: string, engine: SearchEngineId = DEFAULT_SEARCH_ENGINE): string {
   const trimmed = input.trim();
 
   if (trimmed.length === 0) {
-    return 'about:blank';
+    return NEW_TAB_URL;
   }
 
   if (trimmed.startsWith('about:')) {
     return trimmed;
   }
 
+  if (isInternalUrl(trimmed)) {
+    return trimmed.toLowerCase().startsWith('studynest://') ? `studynest://${trimmed.slice('studynest://'.length)}` : trimmed;
+  }
+
   if (classifyNavigationInput(trimmed) === 'search') {
-    return buildSearchUrl(trimmed);
+    return buildSearchUrl(trimmed, engine);
   }
 
   try {
@@ -90,11 +94,14 @@ export function normalizeNavigationInput(input: string): string {
   try {
     return new URL(`https://${trimmed}`).toString();
   } catch {
-    return buildSearchUrl(trimmed);
+    return buildSearchUrl(trimmed, engine);
   }
 }
 
 export function isSafeNavigationUrl(input: string): boolean {
+  if (isInternalUrl(input)) {
+    return true;
+  }
   try {
     const parsed = new URL(input);
     return ALLOWED_PROTOCOLS.has(parsed.protocol) || parsed.protocol === 'about:';
@@ -103,18 +110,14 @@ export function isSafeNavigationUrl(input: string): boolean {
   }
 }
 
+/** What the address bar shows for a URL when it is not being edited. */
 export function displayUrl(input: string): string {
-  if (input === 'about:blank') {
-    return 'New tab';
+  if (input === 'about:blank' || internalPageOf(input) === 'newtab') {
+    return '';
   }
 
-  if (isStudyNestLandingPageUrl(input)) {
-    return 'StudyNest Start';
-  }
-
-  const searchQuery = extractSearchQueryFromUrl(input);
-  if (searchQuery) {
-    return searchQuery;
+  if (isInternalUrl(input)) {
+    return input.split('#', 1)[0]!;
   }
 
   try {
@@ -127,4 +130,14 @@ export function displayUrl(input: string): string {
   }
 
   return input;
+}
+
+/** Host without "www.", for labels; the input itself when it is not a web URL. */
+export function hostLabel(input: string): string {
+  try {
+    const parsed = new URL(input);
+    return ALLOWED_PROTOCOLS.has(parsed.protocol) ? parsed.hostname.replace(/^www\./, '') || input : input;
+  } catch {
+    return input;
+  }
 }

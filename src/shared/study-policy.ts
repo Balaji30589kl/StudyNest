@@ -16,6 +16,12 @@ export type ClassificationPolicy = {
   distractingCategories: PageCategory[];
   /** Hosts judged page by page (each video separately) instead of once per site. */
   perPageHosts: string[];
+  /**
+   * On those hosts, block pages the classifier could not identify (category
+   * "other" below minConfidence). Video sites are mostly not study material, so
+   * an unidentified video stays blocked rather than slipping through.
+   */
+  blockUnclearPerPage: boolean;
 };
 
 export type StudyPolicy = {
@@ -65,7 +71,8 @@ export const DEFAULT_CLASSIFICATION_POLICY: ClassificationPolicy = {
   enabled: true,
   minConfidence: 0.6,
   distractingCategories: [...DEFAULT_DISTRACTING_CATEGORIES],
-  perPageHosts: ['youtube.com', 'youtu.be', 'vimeo.com']
+  perPageHosts: ['youtube.com', 'youtu.be', 'vimeo.com'],
+  blockUnclearPerPage: true
 };
 
 /** Built-in fallback used only if the policy files are missing or unreadable. */
@@ -258,7 +265,9 @@ export function evaluateStudyPolicy(url: string, context: PolicyContext): Policy
     return { action: 'check', reason: 'unclassified', host, matchedRule: null };
   }
 
-  const distracting = ai.distractingCategories.includes(prediction.category) && prediction.confidence >= ai.minConfidence;
+  const unclearVideo =
+    ai.blockUnclearPerPage && prediction.category === 'other' && prediction.confidence < ai.minConfidence && hostIsIn(host, ai.perPageHosts);
+  const distracting = (ai.distractingCategories.includes(prediction.category) && prediction.confidence >= ai.minConfidence) || unclearVideo;
   return {
     action: distracting ? 'block' : 'allow',
     reason: 'classified',
@@ -291,7 +300,8 @@ export function sanitizeClassificationPolicy(raw: unknown, base: ClassificationP
     enabled: typeof candidate.enabled === 'boolean' ? candidate.enabled : base.enabled,
     minConfidence: Math.min(0.99, Math.max(0, confidence)),
     distractingCategories: categories,
-    perPageHosts: [...new Set(hosts)]
+    perPageHosts: [...new Set(hosts)],
+    blockUnclearPerPage: typeof candidate.blockUnclearPerPage === 'boolean' ? candidate.blockUnclearPerPage : base.blockUnclearPerPage
   };
 }
 

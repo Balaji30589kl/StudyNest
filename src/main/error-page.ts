@@ -1,3 +1,4 @@
+import { PAGE_ICONS, PAGE_STYLE } from './page-style.js';
 import { wrapInterstitialHtml } from './navigation-guard.js';
 
 /** Chromium net error codes the shell does not treat as page failures. */
@@ -63,36 +64,25 @@ export function buildErrorPageHtml(targetUrl: string, errorCode: number, errorDe
   const copy = COPY[kind];
   const isWeb = /^https?:\/\//i.test(targetUrl);
   // Certificate failures get no retry shortcut: retrying cannot make the connection safe.
-  const retry = kind !== 'certificate' && isWeb ? `<a class="primary" href="${escapeHtml(targetUrl)}">Try again</a>` : '';
+  const retry = kind !== 'certificate' && isWeb ? `<a class="button primary" href="${escapeHtml(targetUrl)}">Try again</a>` : '';
+
+  const icon = kind === 'certificate' ? `<div class="icon danger" aria-hidden="true">${PAGE_ICONS.alert}</div>` : kind === 'offline' ? `<div class="icon warn" aria-hidden="true">${PAGE_ICONS.offline}</div>` : `<div class="icon warn" aria-hidden="true">${PAGE_ICONS.alert}</div>`;
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <title>${escapeHtml(copy.title)}</title>
-<style>
-:root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; }
-html, body { margin: 0; height: 100%; }
-body { display: grid; place-items: center; background: linear-gradient(180deg, #0b1020, #0f172a); color: #e5eefc; }
-main { width: min(560px, calc(100vw - 48px)); padding: 36px; border-radius: 24px; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(148, 163, 184, 0.18); }
-h1 { margin: 0 0 10px; font-size: 26px; }
-.host { font-weight: 700; color: #f8fafc; word-break: break-all; }
-p { color: #cbd5e1; line-height: 1.6; margin: 8px 0; }
-code { color: #94a3b8; font-size: 12px; }
-.actions { display: flex; gap: 12px; margin-top: 24px; }
-a, button { font: inherit; font-size: 14px; padding: 10px 16px; border-radius: 12px; border: 0; cursor: pointer; text-decoration: none; }
-.primary { background: linear-gradient(135deg, #3b82f6, #22c55e); color: #08111f; font-weight: 700; }
-.secondary { background: rgba(148, 163, 184, 0.14); color: #e5eefc; }
-.warning { color: #fca5a5; }
-</style>
+<style>${PAGE_STYLE}</style>
 </head>
 <body>
 <main>
-<h1 class="${kind === 'certificate' ? 'warning' : ''}">${escapeHtml(copy.heading)}</h1>
+${icon}
+<h1>${escapeHtml(copy.heading)}</h1>
 <p class="host">${escapeHtml(hostOf(targetUrl))}</p>
 <p>${escapeHtml(copy.body)}</p>
 <p><code>${escapeHtml(errorDescription || 'ERR_FAILED')} (${errorCode})</code></p>
-<div class="actions">${retry}<button class="secondary" type="button" onclick="history.length > 1 ? history.back() : null">Go back</button></div>
+<div class="actions">${retry}<button type="button" onclick="history.length > 1 ? history.back() : null">Go back</button></div>
 </main>
 </body>
 </html>`;

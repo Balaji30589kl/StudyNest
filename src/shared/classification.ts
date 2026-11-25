@@ -15,12 +15,13 @@ export const PAGE_CATEGORIES = [
   'entertainment',
   'shopping',
   'gaming',
+  'sports',
   'other'
 ] as const;
 
 export type PageCategory = (typeof PAGE_CATEGORIES)[number];
 
-export const DEFAULT_DISTRACTING_CATEGORIES: PageCategory[] = ['social', 'entertainment', 'shopping', 'gaming'];
+export const DEFAULT_DISTRACTING_CATEGORIES: PageCategory[] = ['social', 'entertainment', 'shopping', 'gaming', 'sports'];
 
 /** Structured, size-capped facts about a page. No cookies, no full content. */
 export type PageMetadata = {
@@ -165,6 +166,7 @@ Judge the specific page, not the website. On video and content platforms (YouTub
 - entertainment: short-form clips, memes, pranks, reactions, comedy, vlogs, music videos, trailers, celebrity and pop culture, streaming shows and movies
 - shopping: stores, product listings, deals, checkout
 - gaming: games, gameplay videos, game streams, esports
+- sports: matches, highlights, live streams and scores, sports news, analysis and fan content (cricket, football, tennis, F1, wrestling…)
 - other: anything that fits none of the above
 
 A search page on a video or content platform (og_type "search", such as a YouTube search) is judged by its search query, because the results will match it: "linear algebra lecture" is study, "funny cat videos" is entertainment, "minecraft speedrun" is gaming. A search with no query is other.

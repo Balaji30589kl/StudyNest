@@ -2,9 +2,9 @@ import { app, BrowserWindow, Event as ElectronEvent, Input, net, Notification, s
 import path from 'node:path';
 import autoUpdaterModule from 'electron-updater';
 import { fileURLToPath } from 'node:url';
-import { LANDING_PAGE_URL } from '../shared/landing-page.js';
+import { NEW_TAB_URL } from '../shared/internal-pages.js';
+import { BrowserServices, setupBrowserServices, urlFromArgv } from './browser/browser-services.js';
 import { BROWSER_CHROME_HEIGHT, BrowserStateSnapshot, IPC_CHANNELS } from '../shared/ipc.js';
-import { normalizeNavigationInput } from '../shared/url.js';
 import { AppConfig, loadAppConfig } from './app-config.js';
 import { ClassificationClient, parseAiData } from './ai/classification-client.js';
 import { GatewayProvider } from './ai/gateway-provider.js';
@@ -37,6 +37,7 @@ let classificationClient: ClassificationClient | null = null;
 let policyService: PolicyService | null = null;
 let accountService: AccountService | null = null;
 let updateService: UpdateService | null = null;
+let browserServices: BrowserServices | null = null;
 let logger: Logger = new Logger({ filePath: null, echo: true });
 
 let windowStateStore: JsonFileStore<WindowState> | null = null;
@@ -57,7 +58,7 @@ function createMainWindow(): BrowserWindow {
     frame: false,
     titleBarStyle: 'hidden',
     autoHideMenuBar: true,
-    backgroundColor: '#0b1020',
+    backgroundColor: '#f3f1ec',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -115,6 +116,29 @@ function runShortcut(window: BrowserWindow, manager: TabManager, action: Shortcu
     return;
   }
   switch (action.type) {
+    case 'open-page':
+      browserServices?.openPage(action.page, action.section);
+      return;
+    case 'bookmark-page':
+      browserServices?.toggleBookmarkForActivePage();
+      return;
+    case 'toggle-bookmarks-bar':
+      browserServices?.toggleBookmarksBar();
+      return;
+    case 'print':
+      manager.print();
+      return;
+    case 'devtools': {
+      const contents = manager.getActiveWebContents();
+      if (contents) {
+        if (contents.isDevToolsOpened()) contents.closeDevTools();
+        else contents.openDevTools({ mode: 'detach' });
+      }
+      return;
+    }
+    case 'home':
+      manager.navigate(NEW_TAB_URL);
+      return;
     case 'close-tab': {
       const activeId = manager.getSnapshot().activeTabId;
       if (activeId) manager.closeTab(activeId);
@@ -212,12 +236,11 @@ function setupWindowControls(window: BrowserWindow): void {
 
 function setupBrowserIpc(window: BrowserWindow, manager: TabManager): void {
   handleTrusted(IPC_CHANNELS.STATE_REQUEST, () => manager.getSnapshot());
-  handleTrusted(IPC_CHANNELS.NEW_TAB, (_event, inputUrl?: string) => manager.createTab(inputUrl));
+  handleTrusted(IPC_CHANNELS.NEW_TAB, (_event, inputUrl?: unknown) => manager.createTab(typeof inputUrl === 'string' && inputUrl ? inputUrl : NEW_TAB_URL));
   handleTrusted(IPC_CHANNELS.CLOSE_TAB, (_event, tabId: string) => manager.closeTab(tabId));
   handleTrusted(IPC_CHANNELS.SWITCH_TAB, (_event, tabId: string) => manager.switchTab(tabId));
   handleTrusted(IPC_CHANNELS.NAVIGATE, (_event, payload: { url: string; tabId?: string }) => {
-    const resolvedUrl = normalizeNavigationInput(payload.url);
-    return manager.navigate(resolvedUrl, payload.tabId);
+    return manager.navigate(typeof payload?.url === 'string' ? payload.url : '', payload?.tabId);
   });
   handleTrusted(IPC_CHANNELS.GO_BACK, (_event, tabId?: string) => manager.goBack(tabId));
   handleTrusted(IPC_CHANNELS.GO_FORWARD, (_event, tabId?: string) => manager.goForward(tabId));
@@ -443,10 +466,34 @@ function initializeApplication(): void {
   setupShortcuts(mainWindow, tabManager);
   setupDownloads(mainWindow);
   updateService = setupUpdates(mainWindow);
-  tabManager.createTab(LANDING_PAGE_URL, true);
+  const window = mainWindow;
+  browserServices = setupBrowserServices({
+    window,
+    manager: tabManager,
+    sendCommand: (command) => sendBrowserCommand(window, command),
+    isStudyActive: () => studyService?.getSnapshot().session !== null,
+    log: (level, message, data) => logger.write(level, 'browser', message, data)
+  });
+  browserServices.restoreSession();
+}
+
+// One StudyNest window: opening it again (or clicking a link in another app
+// when it is the default browser) opens a tab in the running window.
+const hasInstanceLock = app.requestSingleInstanceLock();
+if (!hasInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    const url = urlFromArgv(argv);
+    tabManager?.createTab(url ?? NEW_TAB_URL, true);
+  });
 }
 
 app.whenReady().then(() => {
+  if (!hasInstanceLock) return;
   initializeApplication();
 
   app.on('activate', () => {
@@ -463,6 +510,7 @@ app.on('before-quit', () => {
   policyService?.stop();
   accountService?.dispose();
   updateService?.stop();
+  browserServices?.flush();
   logger.write('info', 'app', 'quitting');
 });
 

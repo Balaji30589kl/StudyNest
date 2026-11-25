@@ -9,7 +9,8 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const REPO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const OUTPUT_DIR = path.join(REPO_DIR, 'e2e-output');
+/** Screenshots and test profiles; STUDYNEST_E2E_OUTPUT moves them (for example when a stuck test app still holds the default folder). */
+export const OUTPUT_DIR = process.env.STUDYNEST_E2E_OUTPUT ? path.resolve(process.env.STUDYNEST_E2E_OUTPUT) : path.join(REPO_DIR, 'e2e-output');
 export const FIXTURE_POLICY_DIR = path.join(REPO_DIR, 'e2e', 'fixtures', 'policy');
 /** Nothing listens here: apps launched without a gateway use their offline rules. */
 export const NO_GATEWAY_URL = 'http://127.0.0.1:9';
@@ -93,6 +94,8 @@ export async function launchApp(name, { userData, executable, env: extraEnv = {}
     // Tests use fixture rules and never reach a real gateway unless a suite starts one.
     STUDYNEST_POLICY_DIR: FIXTURE_POLICY_DIR,
     STUDYNEST_GATEWAY_URL: NO_GATEWAY_URL,
+    // No ad-block list downloads during tests; the ad blocker has its own unit tests.
+    STUDYNEST_ADBLOCK: 'off',
     ...extraEnv
   };
   const app = await electron.launch({
@@ -127,6 +130,14 @@ export async function launchApp(name, { userData, executable, env: extraEnv = {}
     logs,
     pageErrors,
     api,
+    /** Sends a browser command the way main does for shortcuts and native menu items (Playwright cannot click OS menus). */
+    command: (detail) =>
+      app.evaluate(({ BrowserWindow }, payload) => BrowserWindow.getAllWindows()[0].webContents.send('browser:command', payload), detail),
+    /** Opens a built-in page (studynest://...) in a new tab and waits for it to render. */
+    async openInternalPage(url, selector) {
+      await page.evaluate((target) => window.studyNest.newTab(target), url);
+      if (selector) await page.waitForSelector(selector);
+    },
     /** URL actually loaded in the active tab's web contents. */
     contentUrl: () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.getBrowserView()?.webContents.getURL() ?? ''),
     activeTab: async () => {

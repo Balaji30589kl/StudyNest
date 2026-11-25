@@ -10,13 +10,13 @@ Download `StudyNest-Setup-<version>.exe` from the [Releases page](https://github
 
 ## Features
 
-- **Browser shell:** tabs, navigation, an omnibox with search suggestions, and a branded start page.
+- **Everyday browser:** tabs with icons, pinning, muting and drag to reorder; an address bar with inline autocomplete and grouped suggestions; bookmarks and a bookmarks bar; history; find in page; session restore; right-click menus; print; five search engines; light and dark themes; built-in ad and tracker blocking. See [Phase 7](docs/phase-7-daily-browser.md).
 - **Study Mode:** a toolbar on/off switch plus optional timed sessions (15–90 min); focus tracking and an activity log.
 - **Checks before rendering:** backend block and allow lists (domains or paths such as `youtube.com/shorts`), then an AI check through the StudyNest gateway for everything else. It falls back to offline rules when the gateway is unreachable.
 - **Insights:** focus time, streaks, distractions blocked (by list vs. AI), pages checked, a category breakdown, most-blocked sites, and a 14-day chart.
 - **Sync:** settings and session history sync across devices through a folder you already sync. The activity log and API keys never leave the device.
 - **Diagnostics:** structured logs, crash recovery, and an About & diagnostics panel.
-- **Everyday browsing:** keyboard shortcuts, a downloads panel, remembered window size, error pages, and permission prompts for camera, microphone, location, and notifications.
+- **Windows basics:** keyboard shortcuts, a downloads panel, remembered window size, error pages, permission prompts for camera, microphone, location, and notifications, and "Make default browser".
 
 ### Keyboard shortcuts
 
@@ -28,16 +28,20 @@ Download `StudyNest-Setup-<version>.exe` from the [Releases page](https://github
 | F5 / Ctrl+F5 | Reload / reload without cache |
 | Alt+← / Alt+→ | Back / forward |
 | Ctrl+= / Ctrl+- / Ctrl+0 | Zoom in / out / reset |
+| Ctrl+F / Ctrl+P | Find in page / print |
+| Ctrl+D / Ctrl+Shift+B / Ctrl+Shift+O | Bookmark page / bookmarks bar / bookmarks |
+| Ctrl+H / Ctrl+J / Ctrl+, | History / downloads / settings |
+| Alt+Home / F12 | Home / developer tools |
 
 ## Scripts
 
-- `npm run dev`: start the desktop app in development mode
+- `npm run dev`: start the desktop app in development mode, plus the AI gateway when `gateway/.env` has an API key (`npm run dev:app` starts only the app)
 - `npm run build`: build production bundles
 - `npm run preview`: run the production build
 - `npm run typecheck`: TypeScript checks
 - `npm test`: unit tests (Vitest)
 - `npm run verify`: typecheck, tests, and build. Run this before every merge or release; CI runs it on Windows and Ubuntu.
-- `npm run test:e2e`: drives the built app through 70 end-to-end checks (run `npm run build` first)
+- `npm run test:e2e`: drives the built app through 101 end-to-end checks (run `npm run build` first)
 - `npm run dist:win`: builds the Windows installer and portable app into `release/<version>/`
 
 ## Releasing

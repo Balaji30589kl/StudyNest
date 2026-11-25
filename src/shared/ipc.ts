@@ -1,3 +1,4 @@
+import type { BrowserSettings } from './browser-settings.js';
 import type { Classification, PageCategory } from './classification.js';
 import type { InsightsSnapshot } from './insights.js';
 import type { PolicyReason, StudySettings } from './study-policy.js';
@@ -47,12 +48,42 @@ export const IPC_CHANNELS = {
   UPDATE_CHANGED: 'update:changed',
   UPDATE_CHECK: 'update:check',
   UPDATE_INSTALL: 'update:install',
+  STOP: 'browser:stop',
+  TAB_ACTION: 'browser:tab-action',
+  TAB_MENU: 'browser:tab-menu',
+  APP_MENU: 'browser:app-menu',
+  FIND: 'browser:find',
+  FIND_STOP: 'browser:find-stop',
+  FIND_RESULT: 'browser:find-result',
+  PRINT: 'browser:print',
+  ZOOM: 'browser:zoom',
+  SETTINGS_REQUEST: 'settings:request',
+  SETTINGS_CHANGED: 'settings:changed',
+  SETTINGS_UPDATE: 'settings:update',
+  HISTORY_QUERY: 'history:query',
+  HISTORY_SUGGEST: 'history:suggest',
+  HISTORY_TOP_SITES: 'history:top-sites',
+  HISTORY_DELETE: 'history:delete',
+  HISTORY_CHANGED: 'history:changed',
+  BOOKMARKS_REQUEST: 'bookmarks:request',
+  BOOKMARKS_CHANGED: 'bookmarks:changed',
+  BOOKMARKS_TOGGLE: 'bookmarks:toggle',
+  BOOKMARKS_REMOVE: 'bookmarks:remove',
+  BOOKMARKS_UPDATE: 'bookmarks:update',
+  BOOKMARKS_MOVE: 'bookmarks:move',
+  BOOKMARK_MENU: 'bookmarks:menu',
+  CLEAR_BROWSING_DATA: 'privacy:clear-data',
+  ADBLOCK_STATE_REQUEST: 'adblock:state-request',
+  ADBLOCK_CHANGED: 'adblock:changed',
+  DEFAULT_BROWSER_REQUEST: 'default-browser:request',
+  DEFAULT_BROWSER_SET: 'default-browser:set',
   WINDOW_MINIMIZE: 'window:minimize',
   WINDOW_TOGGLE_MAXIMIZE: 'window:toggle-maximize',
   WINDOW_CLOSE: 'window:close'
 } as const;
 
-export const BROWSER_CHROME_HEIGHT = 148;
+/** Height reserved for the browser chrome before the renderer reports its real height. */
+export const BROWSER_CHROME_HEIGHT = 84;
 
 export type BrowserTabState = {
   id: string;
@@ -65,6 +96,16 @@ export type BrowserTabState = {
   blocked: BlockedNavigationInfo | null;
   /** True while Study Mode checks this tab's page before showing it. */
   checking: boolean;
+  /** Site icon URL from the page, when it provided one. */
+  favicon: string | null;
+  /** Playing sound right now, and whether the user muted the tab. */
+  audible: boolean;
+  muted: boolean;
+  pinned: boolean;
+  /** Page zoom in percent (100 = default). */
+  zoomPercent: number;
+  /** Ads and trackers blocked on the current page. */
+  blockedAds: number;
 };
 
 export type BlockedNavigationInfo = {
@@ -208,8 +249,45 @@ export type DiagnosticsSnapshot = {
   recentProblems: Array<{ at: number; level: string; message: string }>;
 };
 
-/** Commands main asks the renderer to perform (keyboard shortcuts that need renderer state). */
-export type BrowserCommand = { type: 'new-tab' } | { type: 'focus-address' };
+/** Commands main asks the renderer to perform (keyboard shortcuts and menu items that need renderer state). */
+export type BrowserCommand =
+  | { type: 'new-tab' }
+  | { type: 'focus-address' }
+  | { type: 'find' }
+  | { type: 'open-panel'; panel: 'study' | 'insights' | 'downloads' };
+
+export type TabAction =
+  | { type: 'mute'; tabId: string }
+  | { type: 'pin'; tabId: string }
+  | { type: 'duplicate'; tabId: string }
+  | { type: 'reload'; tabId: string }
+  | { type: 'close-others'; tabId: string }
+  | { type: 'close-right'; tabId: string }
+  | { type: 'move'; tabId: string; index: number };
+
+export type FindResult = { tabId: string; activeMatch: number; matches: number; finalUpdate: boolean };
+
+export type HistoryEntry = { id: string; url: string; title: string; host: string; visitedAt: number };
+export type HistorySuggestion = { url: string; title: string; visits: number; lastVisitedAt: number };
+export type TopSite = { url: string; host: string; title: string; visits: number };
+export type Bookmark = { id: string; url: string; title: string; createdAt: number };
+
+export type ClearDataOptions = {
+  /** Only data since this time; 0 clears everything. */
+  since: number;
+  history: boolean;
+  cookies: boolean;
+  cache: boolean;
+};
+
+export type AdBlockState = {
+  /** False until the filter lists are loaded (first run downloads them). */
+  ready: boolean;
+  error: string | null;
+  totalBlocked: number;
+};
+
+export type DefaultBrowserState = { isDefault: boolean; canSet: boolean };
 
 export type DownloadEntry = {
   id: string;
@@ -274,6 +352,31 @@ export type StudyNestApi = {
   getUpdateState(): Promise<UpdateState>;
   checkForUpdates(): Promise<UpdateState>;
   installUpdate(): Promise<void>;
+  stop(tabId?: string): Promise<void>;
+  tabAction(action: TabAction): Promise<BrowserStateSnapshot>;
+  /** Native context menus, drawn by the OS above the page. */
+  showTabMenu(tabId: string): Promise<void>;
+  showAppMenu(position: { x: number; y: number }): Promise<void>;
+  showBookmarkMenu(id: string): Promise<void>;
+  find(text: string, options: { forward: boolean; findNext: boolean }): Promise<void>;
+  stopFind(): Promise<void>;
+  print(): Promise<void>;
+  zoom(steps: number): Promise<void>;
+  getSettings(): Promise<BrowserSettings>;
+  updateSettings(changes: Partial<BrowserSettings>): Promise<BrowserSettings>;
+  queryHistory(options: { text?: string; limit?: number; before?: number }): Promise<HistoryEntry[]>;
+  suggestHistory(text: string): Promise<HistorySuggestion[]>;
+  getTopSites(): Promise<TopSite[]>;
+  deleteHistory(ids: string[]): Promise<void>;
+  getBookmarks(): Promise<Bookmark[]>;
+  toggleBookmark(url: string, title: string): Promise<Bookmark[]>;
+  removeBookmark(id: string): Promise<Bookmark[]>;
+  updateBookmark(id: string, changes: { title?: string; url?: string }): Promise<Bookmark[]>;
+  moveBookmark(id: string, index: number): Promise<Bookmark[]>;
+  clearBrowsingData(options: ClearDataOptions): Promise<void>;
+  getAdBlockState(): Promise<AdBlockState>;
+  getDefaultBrowserState(): Promise<DefaultBrowserState>;
+  setDefaultBrowser(): Promise<DefaultBrowserState>;
   minimize(): Promise<void>;
   toggleMaximize(): Promise<void>;
   close(): Promise<void>;

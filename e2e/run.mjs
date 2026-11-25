@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { OUTPUT_DIR, REPO_DIR, Results } from './harness.mjs';
 
-const SUITES = ['study', 'ai', 'product', 'browser', 'security', 'ui'];
+const SUITES = ['study', 'ai', 'product', 'browser', 'security', 'ui', 'daily'];
 // Opt-in: needs `npm run dist:win` output.
 const OPTIONAL_SUITES = ['packaged'];
 const requested = process.argv.slice(2);
